@@ -1,0 +1,7 @@
+# keywords for Arduino invertDisplay
+
+DTControl   KEYWORD1
+Render  KEYWORD2
+HandleEvent KEYWORD2
+
+DTButton    KEYWORD1
