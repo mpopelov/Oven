@@ -3,8 +3,7 @@
         {
             "name": "Win32",
             "includePath": [
-                "${workspaceFolder}/**",
-                "${workspaceFolder}/../TFT_eSPI/**"
+                "${workspaceFolder}/**"
             ],
             "defines": [
                 "_DEBUG",
