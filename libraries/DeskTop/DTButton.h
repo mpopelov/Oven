@@ -26,7 +26,8 @@ class DTButton : public DTControl
     /**
      * @brief Construct a new DTButton object
      * 
-     * @param gfx graphical context to use for drawing on the 
+     * @param gfx graphical context to use for drawing on the screen
+     * @param owner owner control or NULL for the root one
      * @param x top left corner X
      * @param y top left corner Y
      * @param w width
@@ -36,9 +37,10 @@ class DTButton : public DTControl
      * @param txtc label text color
      * @param f fot to use for label text
      * @param txt text string to show as label
-     * @param callback pointer to callback function
+     * @param callback pointer to callback function or NULL if there is none
      */
      DTButton(TFT_eSPI* gfx,
+             DTControl* owner,
                uint16_t x,
                uint16_t y,
                uint16_t w,
@@ -49,7 +51,7 @@ class DTButton : public DTControl
                const GFXfont* f,
                const char* txt,
                DTControl::EventCallabck callback)
-     : DTControl(gfx, x, y, w, h, flags)
+     : DTControl(gfx, owner, x, y, w, h, flags)
      {
         _btn_color = btnc;
         _txt_color = txtc;
@@ -63,7 +65,8 @@ class DTButton : public DTControl
     /**
      * @brief Construct a new DTButton object
      * 
-     * @param gfx graphical context to use for drawing on the 
+     * @param gfx graphical context to use for drawing on the screen
+     * @param owner owner control or NULL for the root one
      * @param x top left corner X
      * @param y top left corner Y
      * @param w width
@@ -75,6 +78,7 @@ class DTButton : public DTControl
      * @param rom text string in PROGMEM to show as label
      */
      DTButton(TFT_eSPI* gfx,
+             DTControl* owner,
                uint16_t x,
                uint16_t y,
                uint16_t w,
@@ -85,7 +89,7 @@ class DTButton : public DTControl
                const GFXfont* f,
                const __FlashStringHelper* rom,
                DTControl::EventCallabck callback)
-     : DTControl(gfx, x, y, w, h, flags)
+     : DTControl(gfx, owner, x, y, w, h, flags)
      {
         _btn_color = btnc;
         _txt_color = txtc;

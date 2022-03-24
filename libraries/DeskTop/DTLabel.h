@@ -19,8 +19,19 @@
 class DTLabel : public DTControl
 {
     public:
-     DTLabel(TFT_eSPI* gfx, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t flags, uint16_t bkgc, uint16_t brdc, uint16_t lblc, const GFXfont* f, const char* lbl)
-     : DTControl(gfx, x, y, w, h, flags)
+     DTLabel(TFT_eSPI* gfx,
+            DTControl* owner,
+            uint16_t x,
+            uint16_t y,
+            uint16_t w,
+            uint16_t h,
+            uint16_t flags,
+            uint16_t bkgc,
+            uint16_t brdc,
+            uint16_t lblc,
+            const GFXfont* f,
+            const char* lbl)
+     : DTControl(gfx, owner, x, y, w, h, flags)
      {
         _bkg_color = bkgc;
         _brd_color = brdc;
@@ -31,8 +42,19 @@ class DTLabel : public DTControl
         _flags &= ~DTLABEL_FPSTR;
      }
 
-     DTLabel(TFT_eSPI* gfx, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t flags, uint16_t bkgc, uint16_t brdc, uint16_t lblc, const GFXfont* f, const __FlashStringHelper* rom)
-     : DTControl(gfx, x, y, w, h, flags)
+     DTLabel(TFT_eSPI* gfx,
+            DTControl* owner,
+              uint16_t x,
+              uint16_t y,
+              uint16_t w,
+              uint16_t h,
+              uint16_t flags,
+              uint16_t bkgc,
+              uint16_t brdc,
+              uint16_t lblc,
+              const GFXfont* f,
+              const __FlashStringHelper* rom)
+     : DTControl(gfx, owner, x, y, w, h, flags)
      {
         _bkg_color = bkgc;
         _brd_color = brdc;

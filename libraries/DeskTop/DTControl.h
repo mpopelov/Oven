@@ -41,15 +41,17 @@ class DTControl
       * @brief Construct a new DTControl object
       * 
       * @param gfx pointer to TFT_eSPI class instance that is to be used for rendering
+      * @param owner pointer to the owning control or NULL for the control to become root
       * @param x control starting point X coordinate
       * @param y control starting point Y coordinate
       * @param w control width
       * @param h control height
       * @param flags flags that impact control behavior
       */
-     DTControl(TFT_eSPI* gfx, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t flags)
+     DTControl(TFT_eSPI* gfx, DTControl* owner, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t flags)
      {
          _gfx = gfx;
+         _owner = owner;
          _x = x;
          _y = y;
          _w = w;
@@ -99,6 +101,7 @@ class DTControl
     
     protected:
      TFT_eSPI* _gfx; // graphical context to be used to redraw element
+     DTControl* _owner; // owning control or NULL for the root element
      uint16_t _x; // top lef corner x
      uint16_t _y; // top left corner y
      uint16_t _w; // control width
