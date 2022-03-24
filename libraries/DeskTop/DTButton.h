@@ -1,6 +1,13 @@
-/*
- Basic button class
-*/
+/**
+ * @file DTButton.h
+ * @author MikeP (mpopelov@gmail.com)
+ * @brief Basic button class
+ * @version 0.1
+ * @date 2022-03-24
+ * 
+ * @copyright Copyright (c) 2022
+ * 
+ */
 
 #ifndef DTButton_h
 #define DTButton_h
@@ -9,10 +16,39 @@
 
 #define DTBUTTON_FPSTR       0x00001000
 
+/**
+ * @brief Basic button class
+ * 
+ */
 class DTButton : public DTControl
 {
     public:
-     DTButton(TFT_eSPI* gfx, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t flags, uint16_t btnc, uint16_t txtc, const GFXfont* f, const char* txt)
+    /**
+     * @brief Construct a new DTButton object
+     * 
+     * @param gfx graphical context to use for drawing on the 
+     * @param x top left corner X
+     * @param y top left corner Y
+     * @param w width
+     * @param h height
+     * @param flags flags that modify behavior
+     * @param btnc button color
+     * @param txtc label text color
+     * @param f fot to use for label text
+     * @param txt text string to show as label
+     * @param callback pointer to callback function
+     */
+     DTButton(TFT_eSPI* gfx,
+               uint16_t x,
+               uint16_t y,
+               uint16_t w,
+               uint16_t h,
+               uint32_t flags,
+               uint16_t btnc,
+               uint16_t txtc,
+               const GFXfont* f,
+               const char* txt,
+               DTControl::EventCallabck callback)
      : DTControl(gfx, x, y, w, h, flags)
      {
         _btn_color = btnc;
@@ -21,9 +57,34 @@ class DTButton : public DTControl
 
         _lbl_text = txt;
         _flags &= ~DTBUTTON_FPSTR;
+        _callback = callback;
      }
 
-     DTButton(TFT_eSPI* gfx, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t flags, uint16_t btnc, uint16_t txtc, const GFXfont* f, const __FlashStringHelper* rom)
+    /**
+     * @brief Construct a new DTButton object
+     * 
+     * @param gfx graphical context to use for drawing on the 
+     * @param x top left corner X
+     * @param y top left corner Y
+     * @param w width
+     * @param h height
+     * @param flags flags that modify behavior
+     * @param btnc button color
+     * @param txtc label text color
+     * @param f fot to use for label text
+     * @param rom text string in PROGMEM to show as label
+     */
+     DTButton(TFT_eSPI* gfx,
+               uint16_t x,
+               uint16_t y,
+               uint16_t w,
+               uint16_t h,
+               uint32_t flags,
+               uint16_t btnc,
+               uint16_t txtc,
+               const GFXfont* f,
+               const __FlashStringHelper* rom,
+               DTControl::EventCallabck callback)
      : DTControl(gfx, x, y, w, h, flags)
      {
         _btn_color = btnc;
@@ -32,6 +93,7 @@ class DTButton : public DTControl
         
         _lbl_rom = rom;
         _flags |= DTBUTTON_FPSTR;
+        _callback = callback;
      }
      
      virtual bool HandleEvent(uint16_t x, uint16_t y, bool pressed);
@@ -43,6 +105,7 @@ class DTButton : public DTControl
      const GFXfont* _font; //
      const __FlashStringHelper* _lbl_rom; // text in ROM
      const char* _lbl_text; // button label limited to 11 characters
+     DTControl::EventCallabck _callback; // pointer to callback function
 };
 
 

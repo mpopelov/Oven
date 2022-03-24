@@ -39,6 +39,9 @@ bool DTButton::HandleEvent(uint16_t x, uint16_t y, bool pressed)
         _btn_color = ~_btn_color;
         _txt_color = ~_txt_color;
 
+        // if callback is provided - call it
+        if(_callback != NULL) (*_callback)();
+
         // invalidate the control so it is redrawn correctly
         Invalidate();
         return true;

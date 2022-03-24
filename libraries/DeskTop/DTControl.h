@@ -1,31 +1,52 @@
-/*
-Base control class to inherit from
-*/
+/**
+ * @file DTControl.h
+ * @author MikeP (mpopelov@gmail.com)
+ * @brief Base control class all other controls inherit from
+ * @version 0.1
+ * @date 2022-03-24
+ * 
+ * @copyright Copyright (c) 2022
+ * 
+ */
 
 #ifndef DTControl_h
 #define DTControl_h
 
 #include "TFT_eSPI.h"
 
-
-//
-// Definitions for different flags that can be used to modify the behavior of a control
-// 32 bit _flags member holds basic flags (that can be masked out) and allows inheriting classes to use available bits on their own
-//
+/**
+ * @brief Flag definitions
+ * Definitions for different flags that can be used to modify the behavior of a control
+ * 32 bit _flags member holds basic flags (that can be masked out) and allows inheriting classes to use available bits on their own
+ */
 #define DTCONTROL_FLAGS_MASK        0x000000FF // lower 4 bits are for controlling purposes
 #define DTCONTROL_FLAGS_VISIBLE     0x00000001 // visibility flag defines whether the control is visible and can draw itself using context
 #define DTCONTROL_FLAGS_INVALIDATED 0x00000002 // invalidation flag to be raised whenever the control has its state changed and needs to be redrawn
 #define DTCONTROL_FLAGS_NBITS       8
 
-
-
-//
-// base class for all different types of controls (windows, labels, buttons, etc.)
-//
+/**
+ * @brief Base class for all different types of controls (windows, labels, buttons, etc.)
+ * 
+ */
 class DTControl
 {
+    /**
+     * @brief Type definition for a generic callback function to be used with derived controls
+     * 
+     */
+    typedef void (*EventCallabck)();
+
     public:
-     // CTor
+     /**
+      * @brief Construct a new DTControl object
+      * 
+      * @param gfx pointer to TFT_eSPI class instance that is to be used for rendering
+      * @param x control starting point X coordinate
+      * @param y control starting point Y coordinate
+      * @param w control width
+      * @param h control height
+      * @param flags flags that impact control behavior
+      */
      DTControl(TFT_eSPI* gfx, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t flags)
      {
          _gfx = gfx;
@@ -36,21 +57,44 @@ class DTControl
          _flags = flags;
      }
 
-     // DTor - virtual for correct deallocation - to be implemented in inheriting classes
+     /**
+      * @brief Destroy the DTControl object - virtual to be overriden in derived classes
+      * 
+      */
      virtual ~DTControl(){}
      
-     // Trigger invalidation so that control is redrawn next time Render is called
+     /**
+      * @brief Trigger invalidation so that control is redrawn next time Render is called
+      * 
+      */
      virtual void Invalidate();
 
-     // Change visibility
+     /**
+      * @brief Change visibility of control and all it's children
+      * 
+      * @param v true if control is visible, false otherwise
+      */
      virtual void Visible(bool v);
     
-     // Render - take necessary actions to draw the control on screen
+     /**
+      * @brief Render control to the display
+      * 
+      */
      virtual void Render();
 
      // Handle touch screen event
-     // Return true if event is handled and should not be passed further.
-     // Return false if event was not completely handled by this control and should be passed to other controls for handling.
+     // Return true .
+     // Return false .
+     // optionally provide a callback function for modifying the state of the owner object
+     /**
+      * @brief Handle touchscreen event
+      * 
+      * @param x X coordinate of touch point
+      * @param y Y coordinate of touch point
+      * @param pressed true if pressed, false if released event occured
+      * @return true if event is handled and should not be passed further
+      * @return false if event was not completely handled by this control and should be passed to other controls for handling
+      */
      virtual bool HandleEvent(uint16_t x, uint16_t y, bool pressed);
     
     protected:
