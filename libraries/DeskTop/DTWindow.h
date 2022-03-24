@@ -49,6 +49,8 @@ class DTWindow : public DTControl
      virtual bool HandleEvent(uint16_t x, uint16_t y, bool pressed);
      // handle rendering
      virtual void Render();
+     // handle invalidate
+     virtual void Invalidate();
 
      // DTor
      virtual ~DTWindow()

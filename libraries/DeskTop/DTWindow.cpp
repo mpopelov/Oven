@@ -40,6 +40,9 @@ void DTWindow::Render()
     // to be redrawn once we are visible again
     if( !(_flags & DTCONTROL_FLAGS_VISIBLE) ) return;
 
+    // redraw ourselves in case we are invalidated
+    if(_flags & DTCONTROL_FLAGS_INVALIDATED) _gfx->fillRect(_x, _y, _w, _h, _bkg_color);
+
     // go hit child controls to render themselves
     DTCList* l = _controls;
     while (l != NULL)
@@ -47,5 +50,20 @@ void DTWindow::Render()
         l->control->Render();
         l = l->next;
     }
-    
+
+    // remember to reset invalidation flag
+        _flags &= ~DTCONTROL_FLAGS_INVALIDATED;
+}
+
+void DTWindow::Invalidate()
+{
+    _flags |= DTCONTROL_FLAGS_INVALIDATED;
+
+    // go hit child controls to render themselves as we are about to redraw the entire window
+    DTCList* l = _controls;
+    while (l != NULL)
+    {
+        l->control->Invalidate();
+        l = l->next;
+    }
 }

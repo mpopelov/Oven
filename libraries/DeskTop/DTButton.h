@@ -50,7 +50,7 @@ class DTButton : public DTControl
                uint16_t txtc,
                const GFXfont* f,
                const char* txt,
-               DTControl::EventCallabck callback)
+               DTEventCallabck callback)
      : DTControl(gfx, owner, x, y, w, h, flags)
      {
         _btn_color = btnc;
@@ -88,7 +88,7 @@ class DTButton : public DTControl
                uint16_t txtc,
                const GFXfont* f,
                const __FlashStringHelper* rom,
-               DTControl::EventCallabck callback)
+               DTEventCallabck callback)
      : DTControl(gfx, owner, x, y, w, h, flags)
      {
         _btn_color = btnc;
@@ -109,7 +109,7 @@ class DTButton : public DTControl
      const GFXfont* _font; //
      const __FlashStringHelper* _lbl_rom; // text in ROM
      const char* _lbl_text; // button label limited to 11 characters
-     DTControl::EventCallabck _callback; // pointer to callback function
+     DTEventCallabck _callback; // pointer to callback function
 };
 
 

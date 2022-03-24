@@ -30,13 +30,8 @@
  */
 class DTControl
 {
-    /**
-     * @brief Type definition for a generic callback function to be used with derived controls
-     * 
-     */
-    typedef void (*EventCallabck)();
-
     public:
+
      /**
       * @brief Construct a new DTControl object
       * 
@@ -98,7 +93,7 @@ class DTControl
       * @return false if event was not completely handled by this control and should be passed to other controls for handling
       */
      virtual bool HandleEvent(uint16_t x, uint16_t y, bool pressed);
-    
+
     protected:
      TFT_eSPI* _gfx; // graphical context to be used to redraw element
      DTControl* _owner; // owning control or NULL for the root element
@@ -109,5 +104,10 @@ class DTControl
      uint32_t _flags; // Different flags to handle state and behavior of the control
 };
 
+/**
+ * @brief Event call-back handler type definition
+ * 
+ */
+typedef void (*DTEventCallabck)(DTControl* c);
 
 #endif
