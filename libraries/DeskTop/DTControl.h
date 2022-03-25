@@ -104,10 +104,44 @@ class DTControl
      uint32_t _flags; // Different flags to handle state and behavior of the control
 };
 
+
 /**
- * @brief Event call-back handler type definition
+ * @brief A delegate class to pass call-back member functions to chid controls
+ * At the moment implemented for functions of type: "void MemberFunc()"
  * 
  */
-typedef void (*DTEventCallabck)(DTControl* c);
+class DTDelegate
+{
+    public:
+    DTDelegate() : _obj_ptr_(0), _stub_ptr_(0) {} // default CTor
+    
+    template <class T, void(T::*TMethod)()>
+    static DTDelegate create(T* object_ptr)
+    {
+        DTDelegate d;
+        d._obj_ptr_ = object_ptr;
+        d._stub_ptr_ = &method_stub<T, TMethod>;
+        return d;
+    }
+
+    void operator()() const
+    {
+        return (*_stub_ptr_)(_obj_ptr_);
+    }
+
+    private:
+
+    typedef void (*STUBTYPE)(void* _obj_ptr_);
+
+    void* _obj_ptr_;
+    STUBTYPE _stub_ptr_;
+
+    template <class T, void (T::*TMethod)()>
+    static void method_stub(void* object_ptr)
+    {
+        T* p = static_cast<T*>(object_ptr);
+        return (p->*TMethod)();
+    }
+};
 
 #endif

@@ -37,11 +37,13 @@ class CWindow : public DTWindow {
     DTControl* cntrl;
 
     // add navy colorizing button
-    cntrl = new DTButton( gfx, this, 270, 0, 50, 40, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, TFT_CYAN, TFT_BLACK, &FF23, F("..."), OnButton1 );
+    cntrl = new DTButton( gfx, this, 270, 0, 50, 40, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, TFT_CYAN, TFT_BLACK, &FF23, F("..."), 
+    DTDelegate::create<CWindow,&CWindow::OnButton1>(this) );
     AddControl(cntrl);
 
     // add black colorizing button
-    cntrl = new DTButton( gfx, this, 270, 41, 50, 40, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, TFT_GREEN, TFT_BLACK, &FF23, F("go"), OnButton2 );
+    cntrl = new DTButton( gfx, this, 270, 41, 50, 40, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, TFT_GREEN, TFT_BLACK, &FF23, F("go"),
+    DTDelegate::create<CWindow,&CWindow::OnButton2>(this) );
     AddControl(cntrl);
     
     // add status text label
@@ -53,8 +55,8 @@ class CWindow : public DTWindow {
     AddControl(cntrl);
   };
   
-  static void OnButton1(DTControl* c) { CWindow* cwnd = (CWindow*)c; cwnd->_bkg_color = TFT_NAVY; cwnd->Invalidate(); };
-  static void OnButton2(DTControl* c) { CWindow* cwnd = (CWindow*)c; cwnd->_bkg_color = TFT_BLACK; cwnd->Invalidate(); };
+  void OnButton1() { _bkg_color = TFT_NAVY; Invalidate(); };
+  void OnButton2() { _bkg_color = TFT_BLACK; Invalidate(); };
 };
 
 

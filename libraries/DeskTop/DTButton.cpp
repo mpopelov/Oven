@@ -40,7 +40,8 @@ bool DTButton::HandleEvent(uint16_t x, uint16_t y, bool pressed)
         _txt_color = ~_txt_color;
 
         // if callback is provided - call it
-        if( _owner != NULL && _callback != NULL ) _callback(_owner); //(_owner->*_callback)();
+        //if( _owner != NULL && _callback != NULL ) _callback(_owner); //(_owner->*_callback)();
+        _callback();
 
         // invalidate the control so it is redrawn correctly
         Invalidate();
