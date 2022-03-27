@@ -6,6 +6,7 @@
 #include <SPI.h> // SPI for accessing devices on SPI bus
 #include <DeskTop.h> // include for simple desktop class library
 #include <LittleFS.h> // include for file system support
+#include <MAX31855.h> // include for K-type sensor
 
 
 // fonts to be used
@@ -28,35 +29,43 @@ static const char FILE_HTTP_INDEX[] PROGMEM = "/index.html";
 FS* fileSystem = &LittleFS;
 LittleFSConfig fileSystemConfig = LittleFSConfig();
 
+// K-type temperature sensor instance
+MAX31855_Class MAX31855;  ///< Create an instance of MAX31855
+
 
 
 class CWindow : public DTWindow {
   public:
   CWindow(TFT_eSPI* gfx) :
-  DTWindow(gfx, NULL, 0, 0, 320, 240, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, TFT_BLACK) {
+  DTWindow(gfx, 0, 0, 320, 240, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, TFT_BLACK) {
     DTControl* cntrl;
 
     // add navy colorizing button
-    cntrl = new DTButton( gfx, this, 270, 0, 50, 40, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, TFT_CYAN, TFT_BLACK, &FF23, F("..."), 
+    cntrl = new DTButton( gfx, 270, 0, 50, 40, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, TFT_CYAN, TFT_BLACK, &FF23, F("..."), 
     DTDelegate::create<CWindow,&CWindow::OnButton1>(this) );
     AddControl(cntrl);
 
     // add black colorizing button
-    cntrl = new DTButton( gfx, this, 270, 41, 50, 40, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, TFT_GREEN, TFT_BLACK, &FF23, F("go"),
+    cntrl = new DTButton( gfx, 270, 41, 50, 40, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, TFT_GREEN, TFT_BLACK, &FF23, F("go"),
     DTDelegate::create<CWindow,&CWindow::OnButton2>(this) );
     AddControl(cntrl);
     
     // add status text label
-    cntrl = new DTLabel( gfx, this, 0, 210, 320, 30, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED | DTLABEL_BRDR_TOP | DTLABEL_BRDR_LEFT, TFT_BLACK, TFT_RED, TFT_WHITE, &FF21, F("Initializing..."));
-    AddControl(cntrl);
+    lblStatus = new DTLabel( gfx, 0, 210, 320, 30, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED | DTLABEL_BRDR_TOP | DTLABEL_BRDR_LEFT, TFT_BLACK, TFT_RED, TFT_WHITE, &FF21, F("Initializing..."));
+    AddControl(lblStatus);
     
     // add temperature display label
-    cntrl = new DTLabel( gfx, this, 0, 0, 210, 210, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED | DTLABEL_BRDR_NONE, TFT_BLACK, TFT_GREEN, TFT_WHITE, &FF24, F("1250 `C"));
-    AddControl(cntrl);
+    lblTempr = new DTLabel( gfx, 0, 0, 210, 210, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED | DTLABEL_BRDR_NONE, TFT_BLACK, TFT_GREEN, TFT_WHITE, &FF24, F("1250 `C"));
+    AddControl(lblTempr);
   };
-  
+
+  // public callback methods for 2 buttons
   void OnButton1() { _bkg_color = TFT_NAVY; Invalidate(); };
   void OnButton2() { _bkg_color = TFT_BLACK; Invalidate(); };
+
+  // public labels with temperature and status text
+  DTLabel* lblTempr;
+  DTLabel* lblStatus;
 };
 
 
@@ -139,8 +148,24 @@ void setup() {
     }
   }
 
+
+
+  // start temperature sensor
+  while (!MAX31855.begin(D2, true))  // Hardware SPI for MAX31855
+  {
+    // data not valid so recalibrate
+    gfx->setCursor(20, 0);
+    gfx->setTextFont(2);
+    gfx->setTextSize(1);
+    gfx->setTextColor(TFT_WHITE, TFT_BLACK);
+
+    gfx->println(F("Unable to start MAX31855. Waiting 3 seconds."));
+    delay(3000);
+  }
+
   // create main window - all details of setting up elements are in CWindow class ctor
   wnd = new CWindow(gfx);
+
 }
 
 
@@ -149,6 +174,11 @@ void setup() {
 //
 // Main loop
 //
+
+
+String strStatus = String("");
+String strTempr = String("");
+
 
 void loop() {
 
@@ -161,9 +191,31 @@ void loop() {
     ticks_total = ticks;
     wnd->HandleEvent(x,y, true);
   }
+
+  int32_t ambientTemperature = MAX31855.readAmbient();  // retrieve MAX31855 die ambient temperature
+  int32_t probeTemperature   = MAX31855.readProbe();    // retrieve thermocouple probe temp
+  uint8_t faultCode          = MAX31855.fault();        // retrieve any error codes
+  
+  if (faultCode)                                        // Display error code if present
+  {
+    if (faultCode & B001) {
+      wnd->lblStatus->SetText("Fault: Wire not connected");
+    }
+    if (faultCode & B010) {
+      wnd->lblStatus->SetText("Fault: Short-circuited to Ground (negative)");
+    }
+    if (faultCode & B100) {
+      wnd->lblStatus->SetText("Fault: Short-circuited to VCC (positive)");
+    }
+  } else {
+    strStatus = "Ambient temperature = " + String((float)ambientTemperature / 1000, 1) + " C";
+    strTempr = String((float)probeTemperature / 1000, 0) + " C";
+    wnd->lblStatus->SetText(strStatus.c_str());
+    wnd->lblTempr->SetText(strTempr.c_str());
+  }
+
   
   wnd->Render();
-  
-  delay(250);
+  delay(1000);
 
 }

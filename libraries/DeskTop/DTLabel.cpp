@@ -3,6 +3,7 @@
 void DTLabel::SetText(const char* t)
 {
     _lbl_text = t;
+    _flags &= ~DTLABEL_FPSTR; // reset rom string flag
     Invalidate();
 }
 

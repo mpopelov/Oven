@@ -20,7 +20,6 @@ class DTLabel : public DTControl
 {
     public:
      DTLabel(TFT_eSPI* gfx,
-            DTControl* owner,
             uint16_t x,
             uint16_t y,
             uint16_t w,
@@ -31,19 +30,12 @@ class DTLabel : public DTControl
             uint16_t lblc,
             const GFXfont* f,
             const char* lbl)
-     : DTControl(gfx, owner, x, y, w, h, flags)
+     : DTControl(gfx, x, y, w, h, flags), _bkg_color(bkgc), _brd_color(brdc), _lbl_color(lblc), _font(f), _lbl_text(lbl)
      {
-        _bkg_color = bkgc;
-        _brd_color = brdc;
-        _lbl_color = lblc;
-        _font = f;
-        
-        _lbl_text = lbl;
         _flags &= ~DTLABEL_FPSTR;
      }
 
      DTLabel(TFT_eSPI* gfx,
-            DTControl* owner,
               uint16_t x,
               uint16_t y,
               uint16_t w,
@@ -54,14 +46,8 @@ class DTLabel : public DTControl
               uint16_t lblc,
               const GFXfont* f,
               const __FlashStringHelper* rom)
-     : DTControl(gfx, owner, x, y, w, h, flags)
+     : DTControl(gfx, x, y, w, h, flags), _bkg_color(bkgc), _brd_color(brdc), _lbl_color(lblc), _font(f), _lbl_rom(rom)
      {
-        _bkg_color = bkgc;
-        _brd_color = brdc;
-        _lbl_color = lblc;
-        _font = f;
-        
-        _lbl_rom = rom;
         _flags |= DTLABEL_FPSTR;
      }
 

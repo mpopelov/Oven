@@ -30,18 +30,13 @@ class DTWindow : public DTControl
     public:
      // CTor
      DTWindow(TFT_eSPI* gfx,
-             DTControl* owner,
                uint16_t x,
                uint16_t y,
                uint16_t w,
                uint16_t h,
                uint32_t flags,
                uint16_t bkgc) :
-     DTControl(gfx, owner, x, y, w, h, flags)
-     {
-         _bkg_color = bkgc;
-         _controls = NULL;
-     }
+     DTControl(gfx, x, y, w, h, flags), _bkg_color(bkgc), _controls(NULL) {}
 
      // add controls to window plane
      virtual void AddControl(DTControl* c);
