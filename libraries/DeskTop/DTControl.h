@@ -2,6 +2,10 @@
  * @file DTControl.h
  * @author MikeP (mpopelov@gmail.com)
  * @brief Base control class all other controls inherit from
+ * @details Contains description of the basic GUI control class capable of positioning itself
+ *          on the screen. It also contains the template class for defining callbacks that can
+ *          be used in derived control classes to change their state in responce to child control
+ *          actions.
  * @version 0.1
  * @date 2022-03-24
  * 
@@ -16,11 +20,12 @@
 
 /**
  * @brief Flag definitions
- * Definitions for different flags that can be used to modify the behavior of a control
- * 32 bit _flags member holds basic flags (that can be masked out) and allows inheriting classes to use available bits on their own
+ * @details Definitions for different flags that can be used to modify the behavior of a control.
+ *          32 bits _flags member holds basic flags (that can be masked out) and allows derived classes
+ *          to use available bits for their own purposes
  */
-#define DTCONTROL_FLAGS_MASK        0x000000FF // lower 4 bits are for controlling purposes
-#define DTCONTROL_FLAGS_VISIBLE     0x00000001 // visibility flag defines whether the control is visible and can draw itself using context
+#define DTCONTROL_FLAGS_MASK        0x000000FF // lower 8 bits are reserved for use by DTControl class
+#define DTCONTROL_FLAGS_VISIBLE     0x00000001 // visibility flag defines whether the control is visible and should draw itself using context
 #define DTCONTROL_FLAGS_INVALIDATED 0x00000002 // invalidation flag to be raised whenever the control has its state changed and needs to be redrawn
 #define DTCONTROL_FLAGS_NBITS       8
 
@@ -70,10 +75,6 @@ class DTControl
       */
      virtual void Render();
 
-     // Handle touch screen event
-     // Return true .
-     // Return false .
-     // optionally provide a callback function for modifying the state of the owner object
      /**
       * @brief Handle touchscreen event
       * 
@@ -86,18 +87,19 @@ class DTControl
      virtual bool HandleEvent(uint16_t x, uint16_t y, bool pressed);
 
     protected:
-     TFT_eSPI* _gfx; // graphical context to be used to redraw element
-     uint16_t _x; // top lef corner x
-     uint16_t _y; // top left corner y
-     uint16_t _w; // control width
-     uint16_t _h; // control height
+     TFT_eSPI* _gfx;  // graphical context to be used to redraw element
+     uint16_t _x;     // top lef corner x
+     uint16_t _y;     // top left corner y
+     uint16_t _w;     // control width
+     uint16_t _h;     // control height
      uint32_t _flags; // Different flags to handle state and behavior of the control
 };
 
 
 /**
  * @brief A delegate class to pass call-back member functions to chid controls
- * At the moment implemented for functions of type: "void MemberFunc()"
+ * @details At the moment implemented for functions of type: "void MemberFunc()"
+ *          meaning call-back functions do not accept arguments and do not return any values.
  * 
  */
 class DTDelegate

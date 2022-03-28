@@ -1,9 +1,8 @@
 #include "DTLabel.h"
 
-void DTLabel::SetText(const char* t)
+void DTLabel::SetText(const String& t)
 {
-    _lbl_text = t;
-    _flags &= ~DTLABEL_FPSTR; // reset rom string flag
+    _lbl = t;
     Invalidate();
 }
 
@@ -32,13 +31,8 @@ void DTLabel::Render()
         _gfx->setTextDatum(ML_DATUM);
         _gfx->setTextPadding(0);
 
-        // draw string - note _x padding with 2 pixels
-        if(_flags & DTLABEL_FPSTR){
-            _gfx->drawString(_lbl_rom, _x+2, _y+(_h/2)-1);
-        }else{
-            _gfx->drawString(_lbl_text, _x + 2, _y + (_h/2) -1);
-        }
-        
+        // draw string - note _x padding with 2 pixels to compensate for borders
+        _gfx->drawString(_lbl, _x+2, _y+(_h/2)-1);
         
         // remember to reset invalidation flag
         _flags &= ~DTCONTROL_FLAGS_INVALIDATED;

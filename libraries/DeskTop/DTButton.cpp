@@ -19,12 +19,8 @@ void DTButton::Render()
         _gfx->setTextDatum(MC_DATUM);
         _gfx->setTextPadding(0);
         // draw string - note _x padding with 2 pixels
-        if(_flags & DTBUTTON_FPSTR){
-            _gfx->drawString(_lbl_rom, _x + (_w/2) -1, _y + (_h/2) -1);
-        }else{
-            _gfx->drawString(_lbl_text, _x + (_w/2) -1, _y + (_h/2) -1);
-        }
-
+        
+        _gfx->drawString(_lbl, _x + (_w/2) -1, _y + (_h/2) -1);
         // remember to reset invalidation flag
         _flags &= ~DTCONTROL_FLAGS_INVALIDATED;
     }
@@ -39,8 +35,7 @@ bool DTButton::HandleEvent(uint16_t x, uint16_t y, bool pressed)
         _btn_color = ~_btn_color;
         _txt_color = ~_txt_color;
 
-        // if callback is provided - call it
-        //if( _owner != NULL && _callback != NULL ) _callback(_owner); //(_owner->*_callback)();
+        // trigger call-back function
         _callback();
 
         // invalidate the control so it is redrawn correctly

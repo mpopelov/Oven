@@ -1,26 +1,32 @@
 #include "DTControl.h"
 
-//
-// Base class implementation
-//
-
-// Trigger invalidation flag to render control updates next time Render is called
+/**
+ * @brief Trigger invalidation flag to render control updates next time Render is called
+ * 
+ */
 void DTControl::Invalidate()
 {
     _flags |= DTCONTROL_FLAGS_INVALIDATED;
 }
 
-// Change visibility
+/**
+ * @brief Change visibility
+ * 
+ * @param v Set to true if control is visible, false otherwise.
+ */
 void DTControl::Visible(bool v)
 {
     if(v){ _flags |= DTCONTROL_FLAGS_VISIBLE; } else {_flags &= ~DTCONTROL_FLAGS_VISIBLE; }
 }
 
-// Render control in case state has changed
+/**
+ * @brief Render control on the screen using supplied graphical context
+ * 
+ */
 void DTControl::Render()
 {
-    // skip control rendering if it's hidden but do not reset invalidation flag as we might expect updates
-    // to be redrawn once we are visible again
+    // skip control rendering if it's hidden but do not reset invalidation flag as the control
+    // might need to be rendered once visible again
     if( !(_flags & DTCONTROL_FLAGS_VISIBLE) ) return;
 
     // only render if invalidated flag is set
@@ -35,6 +41,14 @@ void DTControl::Render()
     // nothing to do at this point
 }
 
+/**
+ * @brief basic stub for event handler: DTControl::HandleEvent simply does nothing and indicates it did not process the event
+ * 
+ * @param x event X coordinate
+ * @param y event Y coordinate
+ * @param pressed touchscreen event type: true = pressed, false = released 
+ * @return true - event was handled, false - not handled
+ */
 bool DTControl::HandleEvent(uint16_t x, uint16_t y, bool pressed)
 {
     return false;
