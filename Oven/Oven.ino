@@ -60,8 +60,8 @@ class CWindow : public DTWindow {
   };
 
   // public callback methods for 2 buttons
-  void OnButton1() { _bkg_color = TFT_NAVY; Invalidate(); };
-  void OnButton2() { _bkg_color = TFT_BLACK; Invalidate(); };
+  void OnButton1() { _bkg_color = TFT_NAVY; Invalidate(false); };
+  void OnButton2() { _bkg_color = TFT_BLACK; Invalidate(false); };
 
   // public labels with temperature and status text
   DTLabel* lblTempr;
@@ -151,7 +151,7 @@ void setup() {
 
 
   // start temperature sensor
-  while (!MAX31855.begin(D2, true))  // Hardware SPI for MAX31855
+  while (!MAX31855.begin(D2, false))  // Hardware SPI for MAX31855
   {
     // data not valid so recalibrate
     gfx->setCursor(20, 0);
@@ -207,15 +207,15 @@ void loop() {
     if (faultCode & B100) {
       wnd->lblStatus->SetText("Fault: Short-circuited to VCC (positive)");
     }
-  } else {
+  } 
+  else
+  {
     strStatus = "Ambient temperature = " + String((float)ambientTemperature / 1000, 1) + " C";
-    strTempr = String((float)probeTemperature / 1000, 0) + " C";
-    wnd->lblStatus->SetText(strStatus.c_str());
-    wnd->lblTempr->SetText(strTempr.c_str());
+    strTempr = String((float)probeTemperature / 1000, 1) + " C";
+    wnd->lblStatus->SetText(strStatus);
+    wnd->lblTempr->SetText(strTempr);
   }
 
   
   wnd->Render();
-  delay(1000);
-
 }

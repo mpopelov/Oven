@@ -23,13 +23,16 @@ void DTSelect::AddItem(uint16_t idx, const String& txt)
     itm->text = txt;
     itm->idx = idx;
     itm->next = NULL;
-    itm->prev = _items;
-    if(_items != NULL){
-        _items->next = itm;
+    itm->prev = _items_last;
+
+    if(_items_first == NULL){
+        _items_first = itm; // case first item is NULL - we are adding the very first item
+        _items_current = itm; // make the very first item to appear as current
     }else{
-        _current_item = itm; // set the first added item to appear as selected
+        // we simply have to add item to the end of the list
+        _items_last->next = itm;
     }
-    _items = itm;
+    _items_last = itm;
 }
 
 /**
@@ -39,8 +42,8 @@ void DTSelect::AddItem(uint16_t idx, const String& txt)
  */
 uint16_t DTSelect::GetSelected()
 {
-    if(_current_item == NULL) return 0xFFFF;
-    return _current_item->idx;
+    if(_items_current == NULL) return 0xFFFF;
+    return _items_current->idx;
 }
 
 /**
@@ -49,9 +52,12 @@ uint16_t DTSelect::GetSelected()
  */
 void DTSelect::MoveNext()
 {
+    // makes sence to move only in case of available list items
+    if(_items_current == NULL) return;
+
     // only move if there is next element in the list
-    if(_current_item->next != NULL){
-        _current_item = _current_item->next;
+    if(_items_current->next != NULL){
+        _items_current = _items_current->next;
     }
 }
 
@@ -62,8 +68,8 @@ void DTSelect::MoveNext()
 void DTSelect::MovePrev()
 {
     // only move if there is previous element in the list
-    if(_current_item->prev != NULL){
-        _current_item = _current_item->prev;
+    if(_items_current->prev != NULL){
+        _items_current = _items_current->prev;
     }
 }
 
@@ -73,6 +79,32 @@ void DTSelect::MovePrev()
  */
 void DTSelect::Render()
 {
+    // first check that rendering is at all possible
+    if(_lbl_max == 0 || _items_current == NULL) return; // if not - return with no impact
+
+    // verify the first attempt to render - labels should be populated with data respectively
+    if(_flags & DTSELECT_FLAGS_INITIALRENDER){
+        // populate labels with data starting with current item - normally should be the same as the very first item on the list
+        DTSelectItem* itm = _items_current;
+        for(int i=0; i<_lbl_max; i++){
+            _lbls[i]->SetText(itm->text);
+
+            // set text and background color
+            if(itm == _items_current){
+                _lbl_cur_idx = i;
+                _lbls[i]->SetBackColor(_i_bkg_cs);
+                _lbls[i]->SetTextColor(_i_txt_cs);
+            }else{
+                _lbls[i]->SetBackColor(_i_bkg_cn);
+                _lbls[i]->SetTextColor(_i_txt_cn);
+            }
+            //move pointer
+            itm = itm->next;
+        }
+        // clean up the first render flag after the first run
+        _flags &= ~DTSELECT_FLAGS_INITIALRENDER;
+    }
+
     // skip control rendering if it's hidden but do not reset invalidation flag as the control
     // might need to be rendered once visible again
     if( !(_flags & DTCONTROL_FLAGS_VISIBLE) ) return;

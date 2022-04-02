@@ -42,6 +42,10 @@ class DTLabel : public DTControl
 
      // change label text
      virtual void SetText(const String& t);
+     // set text color
+     virtual void SetTextColor(uint16_t c);
+     // set background color
+     virtual void SetBackColor(uint16_t c);
      
      virtual void Render(); // redraw the label
 

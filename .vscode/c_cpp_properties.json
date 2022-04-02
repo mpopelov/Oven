@@ -3,7 +3,8 @@
         {
             "name": "Win32",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "C:/Users/Mike/AppData/Local/Arduino15/packages/esp8266/hardware/esp8266/3.0.2/**"
             ],
             "defines": [
                 "_DEBUG",

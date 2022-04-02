@@ -3,7 +3,18 @@
 void DTLabel::SetText(const String& t)
 {
     _lbl = t;
-    Invalidate(flase); // parent control is not invalidating - it's just us setting text
+    Invalidate(false); // parent control is not invalidating - it's just us setting text
+}
+
+void DTLabel::SetTextColor(uint16_t c)
+{
+    _lbl_color = c;
+    Invalidate(false);
+}
+
+void DTLabel::SetBackColor(uint16_t c){
+    _bkg_color = c;
+    Invalidate(false);
 }
 
 void DTLabel::Render()
