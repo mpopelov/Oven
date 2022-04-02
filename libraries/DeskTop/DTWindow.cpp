@@ -10,7 +10,7 @@ void DTWindow::AddControl(DTControl* c)
     // only add non-null controls
     if( c != NULL ){
         // add control to the start of linked list
-        DTCList* l = new DTCList(c, _controls, NULL);
+        DTCList* l = new DTCList(c, _controls);
         _controls = l;
     }
 }
@@ -24,7 +24,7 @@ bool DTWindow::HandleEvent(uint16_t x, uint16_t y, bool pressed)
     while (l != NULL)
     {
         if(result = l->control->HandleEvent(x,y,pressed)){
-            // in case any of our controls handled the event - invalidate window and break;
+            // in case any of our controls handled the event
             break;
         }
         l = l->next;
@@ -41,29 +41,34 @@ void DTWindow::Render()
     if( !(_flags & DTCONTROL_FLAGS_VISIBLE) ) return;
 
     // redraw ourselves in case we are invalidated
-    if(_flags & DTCONTROL_FLAGS_INVALIDATED) _gfx->fillRect(_x, _y, _w, _h, _bkg_color);
-
-    // go hit child controls to render themselves
-    DTCList* l = _controls;
-    while (l != NULL)
+    if(_flags & DTCONTROL_FLAGS_INVALIDATED)
     {
-        l->control->Render();
-        l = l->next;
-    }
+        // if parent has not invalidated - clear window contents with background color
+        if(!(_flags & DTCONTROL_FLAGS_PARENT_INVALIDATED)) _gfx->fillRect(_x, _y, _w, _h, _bkg_color);
 
-    // remember to reset invalidation flag
-        _flags &= ~DTCONTROL_FLAGS_INVALIDATED;
+        // go hit child controls to render themselves
+        DTCList* l = _controls;
+        while (l != NULL)
+        {
+            l->control->Render();
+            l = l->next;
+        }
+        
+        // remember to reset invalidation flags
+        _flags &= ~DTCONTROL_FLAGS_INVALIDATIONRST;
+    }
 }
 
-void DTWindow::Invalidate()
+void DTWindow::Invalidate(bool parentInvalidated)
 {
     _flags |= DTCONTROL_FLAGS_INVALIDATED;
+    if(parentInvalidated) _flags |= DTCONTROL_FLAGS_PARENT_INVALIDATED;
 
     // go hit child controls to render themselves as we are about to redraw the entire window
     DTCList* l = _controls;
     while (l != NULL)
     {
-        l->control->Invalidate();
+        l->control->Invalidate(true); // set parentInvalidated = true - let children know we are cleaning the screen.
         l = l->next;
     }
 }

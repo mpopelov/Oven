@@ -46,11 +46,11 @@ class DTLabel : public DTControl
      virtual void Render(); // redraw the label
 
     protected:
-     uint16_t _bkg_color; // background color
-     uint16_t _brd_color; // border color
-     uint16_t _lbl_color; // label text color
+     uint16_t       _bkg_color; // background color
+     uint16_t       _brd_color; // border color
+     uint16_t       _lbl_color; // label text color
      const GFXfont* _font; // font to use
-     String _lbl; // label text
+     String         _lbl; // label text
 };
 
 #endif

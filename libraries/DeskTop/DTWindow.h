@@ -1,7 +1,14 @@
-/*
-* A class representing a simple window that can hold and update/redraw child components as necessary.
-* a class can hold and track DTButton, DTLabel, etc.
-*/
+/**
+ * @file DTWindow.h
+ * @author MikeP (mpopelov@gmail.com)
+ * @brief A class representing a simple window that can hold and update/redraw child components as necessary.
+ *        a class can hold and track DTButton, DTLabel, etc.
+ * @version 0.1
+ * @date 2022-04-02
+ * 
+ * @copyright Copyright (c) 2022
+ * 
+ */
 
 #ifndef DTWindow_h
 #define DTWindow_h
@@ -11,16 +18,13 @@
 class DTCList
 {
     public:
-     DTCList *next, *prev;
-     DTControl* control;
+     DTCList*   next;       // next item pointer
+     DTControl* control;    // pointer to control itself
 
-     DTCList(DTControl* c, DTCList* n, DTCList* p)
+     DTCList(DTControl* c, DTCList* n)
      {
          control = c;
          next = n;
-         if( n!= NULL ) n->prev = this;
-         prev = p;
-         if( p!= NULL ) p->next = this;
      }
 };
 
@@ -45,7 +49,7 @@ class DTWindow : public DTControl
      // handle rendering
      virtual void Render();
      // handle invalidate
-     virtual void Invalidate();
+     virtual void Invalidate(bool parentInvalidated);
 
      // DTor
      virtual ~DTWindow()
@@ -59,8 +63,8 @@ class DTWindow : public DTControl
      }
 
     protected:
-     uint16_t _bkg_color;
-     DTCList* _controls;
+     uint16_t _bkg_color; // window background color
+     DTCList* _controls;  // child controls
 };
 
 

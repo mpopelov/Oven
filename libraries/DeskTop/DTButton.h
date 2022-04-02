@@ -54,11 +54,11 @@ class DTButton : public DTControl
      virtual void Render();
 
     protected:
-     uint16_t _btn_color; // button color
-     uint16_t _txt_color; // label textcolor
+     uint16_t       _btn_color; // button color
+     uint16_t       _txt_color; // label textcolor
      const GFXfont* _font; //
-     String _lbl; // button label
-     DTDelegate _callback; // callback function delegate
+     String         _lbl; // button label
+     DTDelegate     _callback; // callback function delegate
 };
 
 #endif

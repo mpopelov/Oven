@@ -24,9 +24,11 @@
  *          32 bits _flags member holds basic flags (that can be masked out) and allows derived classes
  *          to use available bits for their own purposes
  */
-#define DTCONTROL_FLAGS_MASK        0x000000FF // lower 8 bits are reserved for use by DTControl class
-#define DTCONTROL_FLAGS_VISIBLE     0x00000001 // visibility flag defines whether the control is visible and should draw itself using context
-#define DTCONTROL_FLAGS_INVALIDATED 0x00000002 // invalidation flag to be raised whenever the control has its state changed and needs to be redrawn
+#define DTCONTROL_FLAGS_MASK               0x000000FF // lower 16 bits are reserved for use by DTControl class related flags
+#define DTCONTROL_FLAGS_VISIBLE            0x00000001 // visibility flag defines whether the control is visible and should draw itself using context
+#define DTCONTROL_FLAGS_INVALIDATED        0x00000002 // invalidation flag to be raised whenever the control has its state changed and needs to be redrawn
+#define DTCONTROL_FLAGS_PARENT_INVALIDATED 0x00000004 // a flag indicating that parent control is also invalidated - meaning control is free to redraw itself withour erasing self contents
+#define DTCONTROL_FLAGS_INVALIDATIONRST    0x00000006 // mask to reset both invalidation flags above
 #define DTCONTROL_FLAGS_NBITS       8
 
 /**
@@ -59,8 +61,9 @@ class DTControl
      /**
       * @brief Trigger invalidation so that control is redrawn next time Render is called
       * 
+      * @param parentInvalidated - true if calling control is also invalidated and will take care of cleaning up its area on the screen
       */
-     virtual void Invalidate();
+     virtual void Invalidate(bool parentInvalidated);
 
      /**
       * @brief Change visibility of control and all it's children
@@ -88,11 +91,11 @@ class DTControl
 
     protected:
      TFT_eSPI* _gfx;  // graphical context to be used to redraw element
-     uint16_t _x;     // top lef corner x
-     uint16_t _y;     // top left corner y
-     uint16_t _w;     // control width
-     uint16_t _h;     // control height
-     uint32_t _flags; // Different flags to handle state and behavior of the control
+     uint16_t  _x;     // top lef corner x
+     uint16_t  _y;     // top left corner y
+     uint16_t  _w;     // control width
+     uint16_t  _h;     // control height
+     uint32_t  _flags; // Different flags to handle state and behavior of the control
 };
 
 

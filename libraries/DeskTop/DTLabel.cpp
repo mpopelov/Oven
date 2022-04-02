@@ -3,7 +3,7 @@
 void DTLabel::SetText(const String& t)
 {
     _lbl = t;
-    Invalidate();
+    Invalidate(flase); // parent control is not invalidating - it's just us setting text
 }
 
 void DTLabel::Render()
@@ -15,8 +15,8 @@ void DTLabel::Render()
     // only render if invalidated flag is set
     if(_flags & DTCONTROL_FLAGS_INVALIDATED){
         
-        // some basic drawing goes here: just clean the surface with black color
-        _gfx->fillRect(_x, _y, _w, _h, _bkg_color);
+        // some basic drawing goes here: just clean the surface with black color if parent control was not invalidated
+        if(!(_flags & DTCONTROL_FLAGS_PARENT_INVALIDATED)) _gfx->fillRect(_x, _y, _w, _h, _bkg_color);
 
         // redraw borders if necessary
         if(_flags & DTLABEL_BRDR_TOP) _gfx->drawFastHLine(_x, _y, _w, _brd_color);
@@ -34,8 +34,8 @@ void DTLabel::Render()
         // draw string - note _x padding with 2 pixels to compensate for borders
         _gfx->drawString(_lbl, _x+2, _y+(_h/2)-1);
         
-        // remember to reset invalidation flag
-        _flags &= ~DTCONTROL_FLAGS_INVALIDATED;
+        // remember to reset invalidation flags
+        _flags &= ~DTCONTROL_FLAGS_INVALIDATIONRST;
     }
     // nothing to do at this point
 }
