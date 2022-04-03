@@ -47,7 +47,7 @@ class DTLabel : public DTControl
      // set background color
      virtual void SetBackColor(uint16_t c);
      
-     virtual void Render(); // redraw the label
+     virtual void Render(bool parentCleared); // redraw the label
 
     protected:
      uint16_t       _bkg_color; // background color

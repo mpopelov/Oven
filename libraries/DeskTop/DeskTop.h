@@ -11,5 +11,6 @@
 #include "DTButton.h"
 #include "DTLabel.h"
 #include "DTWindow.h"
+#include "DTSelect.h"
 
 #endif

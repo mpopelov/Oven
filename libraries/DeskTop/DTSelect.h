@@ -98,8 +98,8 @@ class DTSelect : public DTControl
       }
 
      // overriding standard DTControl functions
-     virtual void Render();                           // redraw the entire control
-     virtual void Invalidate(bool parentInvalidated); // invalidate impacted controls
+     virtual void Render(bool parentCleared); // redraw the entire control
+     virtual void Invalidate();               // invalidate impacted controls
 
      // manipulating items
      virtual void AddItem(uint16_t idx, const String& txt); // adds item to the list
@@ -123,12 +123,5 @@ class DTSelect : public DTControl
      uint16_t       _lbl_cur_idx;   // index of the label that currently shows the selection
      DTLabel**      _lbls;          // array of labels displaying text
 };
-
-
-
-
-
-
-
 
 #endif

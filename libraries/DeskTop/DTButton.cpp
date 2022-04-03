@@ -1,6 +1,6 @@
 #include "DTButton.h"
 
-void DTButton::Render()
+void DTButton::Render(bool parentCleared)
 {
     // skip control rendering if it's hidden but do not reset invalidation flag as we might expect updates
     // to be redrawn once we are visible again
@@ -9,8 +9,8 @@ void DTButton::Render()
     // only render if invalidated flag is set
     if(_flags & DTCONTROL_FLAGS_INVALIDATED){
         
-        // in case parent has not cleared the drawing plane: draw rounded rectangle as button; r = 4
-        if(!(_flags & DTCONTROL_FLAGS_PARENT_INVALIDATED)) _gfx->fillRoundRect(_x, _y, _w, _h, 4, _btn_color);
+        // draw button itself regardless of parent state
+        _gfx->fillRoundRect(_x, _y, _w, _h, 4, _btn_color);
 
         // draw the text
         _gfx->setFreeFont(_font);
@@ -23,7 +23,7 @@ void DTButton::Render()
         // draw string - note _x padding with 2 pixels
         _gfx->drawString(_lbl, _x + (_w/2) -1, _y + (_h/2) -1);
         // remember to reset invalidation flags
-        _flags &= ~DTCONTROL_FLAGS_INVALIDATIONRST;
+        _flags &= ~DTCONTROL_FLAGS_INVALIDATED;
     }
     // nothing to do at this point
 }
@@ -40,7 +40,7 @@ bool DTButton::HandleEvent(uint16_t x, uint16_t y, bool pressed)
         _callback();
 
         // invalidate the control so it is redrawn correctly
-        Invalidate(false);
+        Invalidate();
         return true;
     }
     return false;

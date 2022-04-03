@@ -4,10 +4,9 @@
  * @brief Trigger invalidation flag to render control updates next time Render is called
  * 
  */
-void DTControl::Invalidate(bool parentInvalidated)
+void DTControl::Invalidate()
 {
     _flags |= DTCONTROL_FLAGS_INVALIDATED;
-    if(parentInvalidated) _flags |= DTCONTROL_FLAGS_PARENT_INVALIDATED;
 }
 
 /**
@@ -24,7 +23,7 @@ void DTControl::Visible(bool v)
  * @brief Render control on the screen using supplied graphical context
  * 
  */
-void DTControl::Render()
+void DTControl::Render(bool parentCleared)
 {
     // skip control rendering if it's hidden but do not reset invalidation flag as the control
     // might need to be rendered once visible again
@@ -35,10 +34,10 @@ void DTControl::Render()
         
         // first step is to clear the surface.
         // in case parent control has also been invalidated we may skip this step to avoid costly drawing on TFT via SPI bus and avoid screen flickering.
-        if(!(_flags & DTCONTROL_FLAGS_PARENT_INVALIDATED)) _gfx->fillRect(_x, _y, _w, _h, TFT_BLACK);
+        if(!parentCleared) _gfx->fillRect(_x, _y, _w, _h, TFT_BLACK);
 
         // remember to reset invalidation flags
-        _flags &= ~DTCONTROL_FLAGS_INVALIDATIONRST;
+        _flags &= ~DTCONTROL_FLAGS_INVALIDATED;
     }
     // nothing to do at this point
 }

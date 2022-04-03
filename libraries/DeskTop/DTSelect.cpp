@@ -42,7 +42,7 @@ void DTSelect::AddItem(uint16_t idx, const String& txt)
  */
 uint16_t DTSelect::GetSelected()
 {
-    if(_items_current == NULL) return 0xFFFF;
+    if(_items_current == NULL) return 0xFFFF; // indicate we have no real value
     return _items_current->idx;
 }
 
@@ -57,7 +57,34 @@ void DTSelect::MoveNext()
 
     // only move if there is next element in the list
     if(_items_current->next != NULL){
+        // move the pointer
         _items_current = _items_current->next;
+        // now check if selected label was displayed at the very bottom of the element
+        if(_lbl_cur_idx == (_lbl_max-1) ){
+            // we are at the end of the visible list - the entire contents of displayed area needs to be changed - including text
+            // 1) starting with the last visible label and all way top
+            DTSelectItem* itm = _items_current;
+            for(int i=_lbl_cur_idx; i>=0 && itm != NULL; i--){
+                _lbls[i]->SetText(itm->text);
+                _lbls[i]->SetBackColor(i==_lbl_cur_idx ? _i_bkg_cs : _i_bkg_cn);
+                _lbls[i]->SetTextColor(i==_lbl_cur_idx ? _i_txt_cs : _i_txt_cn);
+                itm = itm->prev;
+            }
+
+            // 2) invalidate entire select control to speed up rendering
+            Invalidate();
+        }else{
+            // we can have it easy: jsut update the 2 labels - no need to update the rest
+            // 1) adjust current one to no longer show selection
+            _lbls[_lbl_cur_idx]->SetBackColor(_i_bkg_cn);
+            _lbls[_lbl_cur_idx]->SetTextColor(_i_txt_cn);
+            // 2) advance pointer
+            _lbl_cur_idx++;
+            // 3) now adjust label to show selection
+            _lbls[_lbl_cur_idx]->SetBackColor(_i_bkg_cs);
+            _lbls[_lbl_cur_idx]->SetTextColor(_i_txt_cs);
+            // labels are invalidated by setting colors, no need to invalidate the entire select control
+        }
     }
 }
 
@@ -67,9 +94,39 @@ void DTSelect::MoveNext()
  */
 void DTSelect::MovePrev()
 {
+    // makes sence to move only in case of available list items
+    if(_items_current == NULL) return;
+
     // only move if there is previous element in the list
     if(_items_current->prev != NULL){
+        // move the pointer
         _items_current = _items_current->prev;
+        // now check if selected label was displayed at the very top of the element
+        if(_lbl_cur_idx == 0 ){
+            // we are at the top of the visible list - the entire contents of displayed area needs to be changed - including text
+            // 1) starting with the first visible label and all way bottom
+            DTSelectItem* itm = _items_current;
+            for(int i=0; i<_lbl_max && itm != NULL; i++){
+                _lbls[i]->SetText(itm->text);
+                _lbls[i]->SetBackColor(i==_lbl_cur_idx ? _i_bkg_cs : _i_bkg_cn);
+                _lbls[i]->SetTextColor(i==_lbl_cur_idx ? _i_txt_cs : _i_txt_cn);
+                itm = itm->next;
+            }
+
+            // 2) invalidate entire select control to speed up rendering
+            Invalidate();
+        }else{
+            // we can have it easy: jsut update the 2 labels - no need to update the rest
+            // 1) adjust current one to no longer show selection
+            _lbls[_lbl_cur_idx]->SetBackColor(_i_bkg_cn);
+            _lbls[_lbl_cur_idx]->SetTextColor(_i_txt_cn);
+            // 2) advance pointer
+            _lbl_cur_idx--;
+            // 3) now adjust label to show selection
+            _lbls[_lbl_cur_idx]->SetBackColor(_i_bkg_cs);
+            _lbls[_lbl_cur_idx]->SetTextColor(_i_txt_cs);
+            // labels are invalidated by setting colors, no need to invalidate the entire select control
+        }
     }
 }
 
@@ -77,7 +134,7 @@ void DTSelect::MovePrev()
  * @brief renders the control
  * 
  */
-void DTSelect::Render()
+void DTSelect::Render(bool parentCleared)
 {
     // first check that rendering is at all possible
     if(_lbl_max == 0 || _items_current == NULL) return; // if not - return with no impact
@@ -86,7 +143,7 @@ void DTSelect::Render()
     if(_flags & DTSELECT_FLAGS_INITIALRENDER){
         // populate labels with data starting with current item - normally should be the same as the very first item on the list
         DTSelectItem* itm = _items_current;
-        for(int i=0; i<_lbl_max; i++){
+        for(int i=0; i<_lbl_max && itm != NULL; i++, itm = itm->next){
             _lbls[i]->SetText(itm->text);
 
             // set text and background color
@@ -98,8 +155,6 @@ void DTSelect::Render()
                 _lbls[i]->SetBackColor(_i_bkg_cn);
                 _lbls[i]->SetTextColor(_i_txt_cn);
             }
-            //move pointer
-            itm = itm->next;
         }
         // clean up the first render flag after the first run
         _flags &= ~DTSELECT_FLAGS_INITIALRENDER;
@@ -113,27 +168,30 @@ void DTSelect::Render()
     if(_flags & DTCONTROL_FLAGS_INVALIDATED){
         
         // first step is to clear the surface.
-        // in case parent control has also been invalidated we may skip this step to avoid costly drawing on TFT via SPI bus and avoid screen flickering.
-        if(!(_flags & DTCONTROL_FLAGS_PARENT_INVALIDATED)) _gfx->fillRect(_x, _y, _w, _h, _bkgc);
-
-        // redraw all the labels as necessary
-        for(int i=0; i < _lbl_max; i++){
-            _lbls[i]->Render();
+        // in case parent control has also been invalidated we may skip this step to avoid costly drawing on TFT via SPI bus
+        // and avoid screen flickering.
+        // also adjust parentCleared value to let children know we have done so alredy
+        if(!parentCleared){
+            _gfx->fillRect(_x, _y, _w, _h, _bkgc);
+            parentCleared = true;
         }
 
         // remember to reset invalidation flags
-        _flags &= ~DTCONTROL_FLAGS_INVALIDATIONRST;
+        _flags &= ~DTCONTROL_FLAGS_INVALIDATED;
     }
-    // nothing to do at this point
+
+    // let child controls render - they might have been invalidated
+    for(int i=0; i < _lbl_max; i++){
+        _lbls[i]->Render(parentCleared); // parentCleared flag should have been adjusted by code above
+    }
 }
 
 
-void DTSelect::Invalidate(bool parentInvalidated)
+void DTSelect::Invalidate()
 {
     _flags |= DTCONTROL_FLAGS_INVALIDATED;
-    if(parentInvalidated) _flags |= DTCONTROL_FLAGS_PARENT_INVALIDATED;
 
     for(int i=0; i < _lbl_max; i++){
-        _lbls[i]->Invalidate(true);
+        _lbls[i]->Invalidate();
     }
 }

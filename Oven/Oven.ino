@@ -6,7 +6,7 @@
 #include <SPI.h> // SPI for accessing devices on SPI bus
 #include <DeskTop.h> // include for simple desktop class library
 #include <LittleFS.h> // include for file system support
-#include <MAX31855.h> // include for K-type sensor
+#include <TSensor.h> // include for K-type sensor
 
 
 // fonts to be used
@@ -30,7 +30,7 @@ FS* fileSystem = &LittleFS;
 LittleFSConfig fileSystemConfig = LittleFSConfig();
 
 // K-type temperature sensor instance
-MAX31855_Class MAX31855;  ///< Create an instance of MAX31855
+TSensor TS(D2, false);  ///< Create an instance of MAX31855 sensor
 
 
 
@@ -60,8 +60,8 @@ class CWindow : public DTWindow {
   };
 
   // public callback methods for 2 buttons
-  void OnButton1() { _bkg_color = TFT_NAVY; Invalidate(false); };
-  void OnButton2() { _bkg_color = TFT_BLACK; Invalidate(false); };
+  void OnButton1() { _bkg_color = TFT_NAVY; Invalidate(); };
+  void OnButton2() { _bkg_color = TFT_BLACK; Invalidate(); };
 
   // public labels with temperature and status text
   DTLabel* lblTempr;
@@ -93,6 +93,10 @@ unsigned long ticks_total = 0;
 // The setup
 //
 void setup() {
+
+  // debug only
+  Serial.begin(115200);
+  Serial.println("Starting...");
 
   uint16_t calData[5]; // buffer for touchscreen calibration data
   uint8_t calDataOK = 0; // calibration data reding status
@@ -148,23 +152,9 @@ void setup() {
     }
   }
 
-
-
-  // start temperature sensor
-  while (!MAX31855.begin(D2, false))  // Hardware SPI for MAX31855
-  {
-    // data not valid so recalibrate
-    gfx->setCursor(20, 0);
-    gfx->setTextFont(2);
-    gfx->setTextSize(1);
-    gfx->setTextColor(TFT_WHITE, TFT_BLACK);
-
-    gfx->println(F("Unable to start MAX31855. Waiting 3 seconds."));
-    delay(3000);
-  }
-
   // create main window - all details of setting up elements are in CWindow class ctor
   wnd = new CWindow(gfx);
+  wnd->Invalidate();
 
 }
 
@@ -192,9 +182,9 @@ void loop() {
     wnd->HandleEvent(x,y, true);
   }
 
-  int32_t ambientTemperature = MAX31855.readAmbient();  // retrieve MAX31855 die ambient temperature
-  int32_t probeTemperature   = MAX31855.readProbe();    // retrieve thermocouple probe temp
-  uint8_t faultCode          = MAX31855.fault();        // retrieve any error codes
+  uint8_t faultCode          = TS.readChip();    // read chip updated value and save error for easy access
+  int32_t ambientTemperature = TS.getAmbient();  // get updated value of chip ambient temperature
+  int32_t probeTemperature   = TS.getProbe();    // get probe temperature as read by chip
   
   if (faultCode)                                        // Display error code if present
   {
@@ -216,6 +206,75 @@ void loop() {
     wnd->lblTempr->SetText(strTempr);
   }
 
+  Serial.print("Sensor raw value: ");
+  // make separate parts of the raw value visible
+  uint32_t val = TS.getRaw();
+  //               Sppppppppppppp0eSaaaaaaaaaaa0eee
+  uint32_t mask = 0b10000000000000000000000000000000;
   
-  wnd->Render();
+  Serial.print("Raw bitvalue: ");
+  for(int i=0; i<32; i++){
+    Serial.print( val & mask ? "1" : "0");
+    mask >>= 1;
+  }
+
+  Serial.println(" ");
+
+  // restore mask
+  mask = 0b10000000000000000000000000000000;
+  
+  Serial.println("-- decode start --");
+  Serial.println("Probe temperature data:");
+  // probe value sign
+  Serial.print( val & mask ? "- " : "+ ");
+  mask >>= 1;
+
+  // probe binary value
+  for(int i = 0; i<13; i++){
+    Serial.print( val & mask ? "1" : "0");
+    mask >>= 1;
+  }
+  uint32_t vu = val >> 18;
+  Serial.println(" (" + String(vu) + ")");
+
+  // probe 0 and error bits
+  Serial.print("Zero bit: ");
+  Serial.println( val & mask ? "1" : "0");
+  mask >>= 1;
+
+  Serial.print("Error bit: ");
+  Serial.println( val & mask ? "1" : "0");
+  mask >>= 1;
+
+  // ambient temperature
+  Serial.println("Ambient temperature data:");
+  Serial.println( val & mask ? "- " : "+ ");
+  mask >>= 1;
+
+  // ambient binary value
+  for(int i = 0; i<11; i++){
+    Serial.print( val & mask ? "1" : "0");
+    mask >>= 1;
+  }
+  vu = (val >> 4) & 0b111111111111;
+  Serial.println(" (" + String(vu) + ")");
+
+  Serial.println("Error bits:");
+  Serial.print("Zero bit: ");
+  Serial.println( val & mask ? "1" : "0");
+  mask >>= 1;
+  Serial.print("Short to VCC: ");
+  Serial.println( val & mask ? "1" : "0");
+  mask >>= 1;
+  Serial.print("Short to GND: ");
+  Serial.println( val & mask ? "1" : "0");
+  mask >>= 1;
+  Serial.print("Open circuit: ");
+  Serial.println( val & mask ? "1" : "0");
+  mask >>= 1;
+  
+  Serial.println("-- decode end ----");
+
+  delay(500);
+  wnd->Render(false);
 }

@@ -34,7 +34,7 @@ bool DTWindow::HandleEvent(uint16_t x, uint16_t y, bool pressed)
 }
 
 // handle rendering
-void DTWindow::Render()
+void DTWindow::Render(bool parentCleared)
 {
     // skip control rendering if it's hidden but do not reset invalidation flag as we might expect updates
     // to be redrawn once we are visible again
@@ -44,31 +44,33 @@ void DTWindow::Render()
     if(_flags & DTCONTROL_FLAGS_INVALIDATED)
     {
         // if parent has not invalidated - clear window contents with background color
-        if(!(_flags & DTCONTROL_FLAGS_PARENT_INVALIDATED)) _gfx->fillRect(_x, _y, _w, _h, _bkg_color);
-
-        // go hit child controls to render themselves
-        DTCList* l = _controls;
-        while (l != NULL)
-        {
-            l->control->Render();
-            l = l->next;
+        if(!parentCleared){
+            _gfx->fillRect(_x, _y, _w, _h, _bkg_color);
+            parentCleared = true;
         }
-        
+
         // remember to reset invalidation flags
-        _flags &= ~DTCONTROL_FLAGS_INVALIDATIONRST;
+        _flags &= ~DTCONTROL_FLAGS_INVALIDATED;
+    }
+
+    // trigger rendering of child components - they might need to be redrawn even if this one is not in invalidated state
+    DTCList* l = _controls;
+    while (l != NULL)
+    {
+        l->control->Render(parentCleared); // parentCleared is adjusted in the code above to reflect clearing of the area either by parent or this component
+        l = l->next;
     }
 }
 
-void DTWindow::Invalidate(bool parentInvalidated)
+void DTWindow::Invalidate()
 {
     _flags |= DTCONTROL_FLAGS_INVALIDATED;
-    if(parentInvalidated) _flags |= DTCONTROL_FLAGS_PARENT_INVALIDATED;
 
     // go hit child controls to render themselves as we are about to redraw the entire window
     DTCList* l = _controls;
     while (l != NULL)
     {
-        l->control->Invalidate(true); // set parentInvalidated = true - let children know we are cleaning the screen.
+        l->control->Invalidate(); 
         l = l->next;
     }
 }

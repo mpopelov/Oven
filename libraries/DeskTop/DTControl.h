@@ -27,9 +27,7 @@
 #define DTCONTROL_FLAGS_MASK               0x000000FF // lower 16 bits are reserved for use by DTControl class related flags
 #define DTCONTROL_FLAGS_VISIBLE            0x00000001 // visibility flag defines whether the control is visible and should draw itself using context
 #define DTCONTROL_FLAGS_INVALIDATED        0x00000002 // invalidation flag to be raised whenever the control has its state changed and needs to be redrawn
-#define DTCONTROL_FLAGS_PARENT_INVALIDATED 0x00000004 // a flag indicating that parent control is also invalidated - meaning control is free to redraw itself withour erasing self contents
-#define DTCONTROL_FLAGS_INVALIDATIONRST    0x00000006 // mask to reset both invalidation flags above
-#define DTCONTROL_FLAGS_NBITS       8
+#define DTCONTROL_FLAGS_NBITS       16
 
 /**
  * @brief Base class for all different types of controls (windows, labels, buttons, etc.)
@@ -61,9 +59,8 @@ class DTControl
      /**
       * @brief Trigger invalidation so that control is redrawn next time Render is called
       * 
-      * @param parentInvalidated - true if calling control is also invalidated and will take care of cleaning up its area on the screen
       */
-     virtual void Invalidate(bool parentInvalidated);
+     virtual void Invalidate();
 
      /**
       * @brief Change visibility of control and all it's children
@@ -75,8 +72,9 @@ class DTControl
      /**
       * @brief Render control to the display
       * 
+      * @param parentCleared true if parent has cleared the area, false otherwise
       */
-     virtual void Render();
+     virtual void Render(bool parentCleared);
 
      /**
       * @brief Handle touchscreen event
