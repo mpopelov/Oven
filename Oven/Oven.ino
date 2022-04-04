@@ -183,8 +183,8 @@ void loop() {
   }
 
   uint8_t faultCode          = TS.readChip();    // read chip updated value and save error for easy access
-  int32_t ambientTemperature = TS.getAmbient();  // get updated value of chip ambient temperature
-  int32_t probeTemperature   = TS.getProbe();    // get probe temperature as read by chip
+  double ambientTemperature = TS.getAmbient();  // get updated value of chip ambient temperature
+  double probeTemperature   = TS.getProbe();    // get probe temperature as read by chip
   
   if (faultCode)                                        // Display error code if present
   {
@@ -200,8 +200,8 @@ void loop() {
   } 
   else
   {
-    strStatus = "Ambient temperature = " + String((float)ambientTemperature / 1000, 1) + " C";
-    strTempr = String((float)probeTemperature / 1000, 1) + " C";
+    strStatus = "Ambient temperature = " + String(ambientTemperature, 1) + " C";
+    strTempr = String(probeTemperature, 1) + " C";
     wnd->lblStatus->SetText(strStatus);
     wnd->lblTempr->SetText(strTempr);
   }

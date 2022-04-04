@@ -4,8 +4,8 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "C:/Users/Mike/AppData/Local/Arduino15/packages/esp8266/**",
-                "C:/Users/Mike/AppData/Local/Arduino15/packages/esp8266/tools/xtensa-lx106-elf-gcc/3.0.4-gcc10.3-1757bed/xtensa-lx106-elf/include/c++/10.3.0"
+                "${env:LOCALAPPDATA}/Arduino15/packages/esp8266/**",
+                "${env:LOCALAPPDATA}/Arduino15/packages/esp8266/tools/xtensa-lx106-elf-gcc/3.0.4-gcc10.3-1757bed/xtensa-lx106-elf/include/c++/10.3.0"
             ],
             "defines": [
                 "_DEBUG",
