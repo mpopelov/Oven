@@ -206,6 +206,12 @@ void loop() {
     wnd->lblTempr->SetText(strTempr);
   }
 
+  Serial.print("Sensor temperature direct:     ");
+  Serial.println(TS.getProbe(),6);
+
+  Serial.print("Sensor temperature linearized: ");
+  Serial.println(TS.getProbeLinearized(),6);
+  
   Serial.print("Sensor raw value: ");
   // make separate parts of the raw value visible
   uint32_t val = TS.getRaw();
