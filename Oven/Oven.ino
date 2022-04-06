@@ -8,6 +8,9 @@
 #include <LittleFS.h> // include for file system support
 #include <TSensor.h> // include for K-type sensor
 
+#include <PIDControl.h>
+#include <TProgram.h>
+
 
 // fonts to be used
 #define FF21 FreeSansBold9pt7b
