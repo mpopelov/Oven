@@ -35,12 +35,13 @@ class TProgramStep
      // default constructor
      TProgramStep() : T_start(NAN), T_end(NAN), slope(NAN), duration(0), dueTime(0) {}
      // initialization of the step
-     void Init(double T_s, double T_e, unsigned long d, unsigned long o);
+     void Init(double T_s, double T_e, unsigned long d, unsigned long dt);
      // SetPoint calculation
      double CalculateSetPoint(unsigned long t);
 
      // helper functions to access private data members
-     unsigned long GetDueTime() { return dueTime; } // get due time for program step to be over relative to program start
+     unsigned long GetDueTime() { return dueTime; }     // get due time for program step to be over relative to program start
+     unsigned long GetDuration() { return duration; }   // return duration
 
     private:
 
@@ -97,5 +98,19 @@ class TProgram
      TProgram& operator=(const TProgram& p) = delete;
 };
 
+/**
+ * @brief Some useful macros for extracting hours, minutes and seconds part from milliseconds value
+ * 
+ */
+#define TPGM_MS_HOURS(_val_)    ((_val_ / 1000ul) / 3600ul)
+#define TPGM_MS_MINUTES(_val_)  (((_val_ / 1000ul) % 3600ul) / 60ul)
+#define TPGM_MS_SECONDS(_val_)  (((_val_ / 1000ul) % 1000ul) % 60ul)
+
+    /*
+     uint32_t sec = millis() / 1000ul;      // total seconds
+     int timeHours = (sec / 3600ul);        // hours
+     int timeMins = (sec % 3600ul) / 60ul;  // minutes
+     int timeSecs = (sec % 3600ul) % 60ul;  // seconds
+    */
 
 #endif

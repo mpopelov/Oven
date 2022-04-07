@@ -60,7 +60,7 @@ class CWindow : public DTWindow {
     // add temperature display label
     lblTempr = new DTLabel( gfx, 0, 0, 210, 210, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED | DTLABEL_BRDR_NONE, TFT_BLACK, TFT_GREEN, TFT_WHITE, &FF24, F("1250 `C"));
     AddControl(lblTempr);
-  };
+  }
 
   // public callback methods for 2 buttons
   void OnButton1() { _bkg_color = TFT_NAVY; Invalidate(); };
@@ -85,6 +85,23 @@ CWindow* wnd;
 
 unsigned long ticks_total = 0;
 
+
+
+// test programs to add and run on oven:
+/*
+ * Prog name  | temp range  | temp range  | temp range  | temp range  | temp range  | temp range  | temp range  | temp range  |
+ *            | duration    | duration    | duration    | duration    | duration    | duration    | duration    | duration    |
+ * -----------+-------------+-------------+-------------+-------------+-------------+-------------+-------------+-------------|
+ * utility R  | 0-100       | 100-100     | 100-200     | 200-200     | 200-595     | 595-595     | 595-950     | 950-950     |
+ *            | 35 min      | 35 min      | 35 min      | 35 min      | 2 h 30 min  | 45 min      | 2 h 30 min  | 15 min      |
+ *            
+ * utility W  | 0-100       | 100-100     | 100-200     | 200-200     | 200-595     | 595-595     | 595-1000    | 1000-1000   |
+ *            | 35 min      | 35 min      | 35 min      | 35 min      | 2 h 30 min  | 45 min      | 2 h 30 min  | 15 min      |
+ * 
+ * glazing    | 0-100       | 100-100     | 100-200     | 200-200     | 200-max     | max         |             |             |
+ *            | 35 min      | 35 min      | 35 min      | 35 min      | 3 h 00 min  | 40 min      |             |             | 
+ * 
+ */
 
 
 

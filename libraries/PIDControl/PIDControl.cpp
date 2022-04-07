@@ -35,4 +35,4 @@ double PIDControl::Evaluate(double SP, double PV, double U)
 
     // PID: sum up P, I and filtered D portions
     return U + _A0*_error[0] + _A1*_error[1] + _fd0;
-};
+}

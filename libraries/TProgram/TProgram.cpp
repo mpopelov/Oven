@@ -21,12 +21,14 @@
  * @param T_s step start temperature, C
  * @param T_e step end temperature, C
  * @param d step duration in milliseconds
+ * @param dt dueTime relative to program start
  */
-void TProgramStep::Init(double T_s, double T_e, unsigned long d)
+void TProgramStep::Init(double T_s, double T_e, unsigned long d, unsigned long dt)
 {
     T_start = T_s;
     T_end = T_e;
     duration = d;
+    dueTime = dt;
     slope = (T_e - T_s)/d;
 }
 
@@ -44,7 +46,7 @@ double TProgramStep::CalculateSetPoint(unsigned long t)
     // constant B = T_start
     // So the final result would be SetPoint(t) = (T_end - T_start)/duration * t + T_start
     return slope * t + T_start;
-};
+}
 
 
 
@@ -64,7 +66,7 @@ bool TProgram::AddStep(double T_s, double T_e, unsigned long d)
     _steps[_idx].Init(T_s, T_e, d, _totalDuration);     // init current step and set it's dueTime
     _idx++;                                             // move over to next step
     return true;
-};
+}
 
 /**
  * @brief Initializes program to start running and return the initial SetPoint value
@@ -80,7 +82,7 @@ double TProgram::Begin()
     _timeElapsed = 0;                       // reset elapsed time program is running
     _timeLast = millis();                   // save timer value at start of the program
     return _steps[0].CalculateSetPoint(0);  // returns starting temperature of the very first step in the program
-};
+}
 
 /**
  * @brief Returns current SetPoint value of the program
@@ -93,7 +95,6 @@ double TProgram::CalculateSetPoint()
 
     _timeElapsed += (timeNow - _timeLast);          // adjust elapsed time to correctly identify the step to execute
     if(_timeElapsed > _totalDuration) return NAN;   // total program duration exceeded - just return NAN
-    
     _timeLast = timeNow;                            // save timestamp for calculating delta next time
     
     // figure out which step is to be used for calculating SetPoint this time
@@ -105,20 +106,14 @@ double TProgram::CalculateSetPoint()
     }
 
     // _idx should now point to the correct step
-    // calculate offset into the step to get correct SetPoint and return it to the caller
-    return _steps[_idx].CalculateSetPoint(???);
-
-
-
-    /*
-     uint32_t sec = millis() / 1000ul;      // total seconds
-     int timeHours = (sec / 3600ul);        // hours
-     int timeMins = (sec % 3600ul) / 60ul;  // minutes
-     int timeSecs = (sec % 3600ul) % 60ul;  // seconds
-    */
-};
+    // calculate time delta to get correct SetPoint and return it to the caller
+    // step SetPoint function expects time delta from start of the step
+    // which is equal: step duration - (dueTime - timeElapsed)
+    return _steps[_idx].CalculateSetPoint( _steps[_idx].GetDuration() - _steps[_idx].GetDueTime() + _timeElapsed );
+}
 
 void TProgram::Reset()
 {
     //reset program to its initial state
-};
+    unsigned long t = TPGM_MS_HOURS(7235684235);
+}
