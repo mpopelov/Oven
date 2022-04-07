@@ -12,6 +12,8 @@
 #ifndef TProgram_h
 #define TProgram_h
 
+#include <Arduino.h>
+
 
 /**
  * @brief Class describing one program step.
@@ -28,13 +30,25 @@
  */
 class TProgramStep
 {
-    double          T_start;    // desired temperature at step start, C
-    double          T_end;      // desired temperature at step end, C
-    double          slope;      // precalculated slope value
-    unsigned long   duration;   // desired duration of step - in microseconds
+    public:
 
-    void Init(double T_s, double T_e, unsigned long d);
-    double SetPoint(unsigned long t);
+     // default constructor
+     TProgramStep() : T_start(NAN), T_end(NAN), slope(NAN), duration(0), dueTime(0) {}
+     // initialization of the step
+     void Init(double T_s, double T_e, unsigned long d, unsigned long o);
+     // SetPoint calculation
+     double CalculateSetPoint(unsigned long t);
+
+     // helper functions to access private data members
+     unsigned long GetDueTime() { return dueTime; } // get due time for program step to be over relative to program start
+
+    private:
+
+     double         T_start;    // desired temperature at step start, C
+     double         T_end;      // desired temperature at step end, C
+     double         slope;      // precalculated slope value
+     unsigned long  duration;   // desired duration of step - in milliseconds
+     unsigned long  dueTime;    // an offset from program start when this step is to be over
 };
 
 
@@ -48,11 +62,39 @@ class TProgramStep
 class TProgram
 {
     public:
-     TProgram(int numSteps) : _nSteps(numSteps) {}
+     TProgram(int numSteps, String name)
+     : _name(name), _nSteps(numSteps), _timeElapsed(0), _timeLast(0), _totalDuration(0), _idx(0)
+     {
+         if(_nSteps > 0) _steps = new TProgramStep[_nSteps];
+     }
+
+     ~TProgram()
+     {
+         if(_nSteps > 0) delete []_steps;
+     }
+
+     // initialization routine for steps in the program
+     bool AddStep(double T_s, double T_e, unsigned long d);
+
+     // runtime routines
+     double Begin();                // start executing the program
+     double CalculateSetPoint();    // calculate current program SetPoint
+     void   Reset();                // reset program
 
     private:
-     int            _nSteps;    // number of steps
-     TProgramStep   _steps[];   // arrays of steps
+     String         _name;          // program human readable name
+     unsigned long  _timeElapsed;   // elapsed time from program start in milliseconds
+     unsigned long  _timeLast;      // timestamp of last SetPoint calculation to measure time offsets
+     unsigned long  _totalDuration; // precalculated value of total program duration
+
+     int            _idx;           // current step index
+
+     const int      _nSteps;        // total number of steps
+     TProgramStep*  _steps;         // arrays of steps
+
+     // prevent copying the class
+     TProgram(const TProgram& p) = delete;
+     TProgram& operator=(const TProgram& p) = delete;
 };
 
 

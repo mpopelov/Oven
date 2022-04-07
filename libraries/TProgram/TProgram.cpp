@@ -20,7 +20,7 @@
  * 
  * @param T_s step start temperature, C
  * @param T_e step end temperature, C
- * @param d step duration in microseconds
+ * @param d step duration in milliseconds
  */
 void TProgramStep::Init(double T_s, double T_e, unsigned long d)
 {
@@ -33,10 +33,10 @@ void TProgramStep::Init(double T_s, double T_e, unsigned long d)
 /**
  * @brief Calculates new SetPoint (desired temperature for current step) at a given time from step start
  * 
- * @param t time from step start to calculate SetPoint for, expressed in microseconds
+ * @param t time from step start to calculate SetPoint for, expressed in milliseconds
  * @return calculated temperature
  */
-double TProgramStep::SetPoint(unsigned long t)
+double TProgramStep::CalculateSetPoint(unsigned long t)
 {
     // calculate set point for provided step based on linear function defined by this step
     // SetPoint(t) = A*t + B
@@ -44,4 +44,81 @@ double TProgramStep::SetPoint(unsigned long t)
     // constant B = T_start
     // So the final result would be SetPoint(t) = (T_end - T_start)/duration * t + T_start
     return slope * t + T_start;
+};
+
+
+
+
+/**
+ * @brief Initialize next program step with relevant valuse (updates the last step available)
+ * 
+ * @param T_s desired temperature at the start of the step
+ * @param T_e desired temperature at the end of the step
+ * @param d duration of the step expressed in milliseconds
+ * @return true on success or false on input out of bounds
+ */
+bool TProgram::AddStep(double T_s, double T_e, unsigned long d)
+{
+    if(_idx >= _nSteps) return false;                   // can't accomodate more steps than defined in constructor
+    _totalDuration += d;                                // adjust total program duration by added step duration
+    _steps[_idx].Init(T_s, T_e, d, _totalDuration);     // init current step and set it's dueTime
+    _idx++;                                             // move over to next step
+    return true;
+};
+
+/**
+ * @brief Initializes program to start running and return the initial SetPoint value
+ * 
+ * @return initial SetPoint / NAN in case of error
+ */
+double TProgram::Begin()
+{
+    // return NAN if there are no program steps defined
+    if(_nSteps == 0) return NAN;
+
+    _idx = 0;                               // reset current step index
+    _timeElapsed = 0;                       // reset elapsed time program is running
+    _timeLast = millis();                   // save timer value at start of the program
+    return _steps[0].CalculateSetPoint(0);  // returns starting temperature of the very first step in the program
+};
+
+/**
+ * @brief Returns current SetPoint value of the program
+ * 
+ * @return SetPoint value or NAN in case program is over or there was an error
+ */
+double TProgram::CalculateSetPoint()
+{
+    unsigned long timeNow = millis();               // get current millis()
+
+    _timeElapsed += (timeNow - _timeLast);          // adjust elapsed time to correctly identify the step to execute
+    if(_timeElapsed > _totalDuration) return NAN;   // total program duration exceeded - just return NAN
+    
+    _timeLast = timeNow;                            // save timestamp for calculating delta next time
+    
+    // figure out which step is to be used for calculating SetPoint this time
+    while(_timeElapsed > _steps[_idx].GetDueTime()){
+        // elapsed time is beyond current step due time - advance step index
+        _idx++;
+        // just another safety check - make sure _idx is within boundaries. should not happen but still
+        if(_idx >= _nSteps) return NAN;
+    }
+
+    // _idx should now point to the correct step
+    // calculate offset into the step to get correct SetPoint and return it to the caller
+    return _steps[_idx].CalculateSetPoint(???);
+
+
+
+    /*
+     uint32_t sec = millis() / 1000ul;      // total seconds
+     int timeHours = (sec / 3600ul);        // hours
+     int timeMins = (sec % 3600ul) / 60ul;  // minutes
+     int timeSecs = (sec % 3600ul) % 60ul;  // seconds
+    */
+};
+
+void TProgram::Reset()
+{
+    //reset program to its initial state
 };
