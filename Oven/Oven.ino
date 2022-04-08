@@ -87,22 +87,8 @@ unsigned long ticks_total = 0;
 
 
 
-// test programs to add and run on oven:
-/*
- * Prog name  | temp range  | temp range  | temp range  | temp range  | temp range  | temp range  | temp range  | temp range  |
- *            | duration    | duration    | duration    | duration    | duration    | duration    | duration    | duration    |
- * -----------+-------------+-------------+-------------+-------------+-------------+-------------+-------------+-------------|
- * utility R  | 0-100       | 100-100     | 100-200     | 200-200     | 200-595     | 595-595     | 595-950     | 950-950     |
- *            | 35 min      | 35 min      | 35 min      | 35 min      | 2 h 30 min  | 45 min      | 2 h 30 min  | 15 min      |
- *            
- * utility W  | 0-100       | 100-100     | 100-200     | 200-200     | 200-595     | 595-595     | 595-1000    | 1000-1000   |
- *            | 35 min      | 35 min      | 35 min      | 35 min      | 2 h 30 min  | 45 min      | 2 h 30 min  | 15 min      |
- * 
- * glazing    | 0-100       | 100-100     | 100-200     | 200-200     | 200-max     | max         |             |             |
- *            | 35 min      | 35 min      | 35 min      | 35 min      | 3 h 00 min  | 40 min      |             |             | 
- * 
- */
-
+ // test program placeholder
+TProgram PGM_1 = TProgram(8, "Utility Red");
 
 
 
@@ -175,6 +161,33 @@ void setup() {
   // create main window - all details of setting up elements are in CWindow class ctor
   wnd = new CWindow(gfx);
   wnd->Invalidate();
+
+ // test programs to add and run on oven:
+ // objects created in global scope for tests
+/*
+ * Prog name  | temp range  | temp range  | temp range  | temp range  | temp range  | temp range  | temp range  | temp range  |
+ *            | duration    | duration    | duration    | duration    | duration    | duration    | duration    | duration    |
+ * -----------+-------------+-------------+-------------+-------------+-------------+-------------+-------------+-------------|
+ * utility R  | 0-100       | 100-100     | 100-200     | 200-200     | 200-595     | 595-595     | 595-950     | 950-950     |
+ *            | 35 min      | 35 min      | 35 min      | 35 min      | 2 h 30 min  | 45 min      | 2 h 30 min  | 15 min      |
+ *            
+ * utility W  | 0-100       | 100-100     | 100-200     | 200-200     | 200-595     | 595-595     | 595-1000    | 1000-1000   |
+ *            | 35 min      | 35 min      | 35 min      | 35 min      | 2 h 30 min  | 45 min      | 2 h 30 min  | 15 min      |
+ * 
+ * glazing    | 0-100       | 100-100     | 100-200     | 200-200     | 200-max     | max         |             |             |
+ *            | 35 min      | 35 min      | 35 min      | 35 min      | 3 h 00 min  | 40 min      |             |             | 
+ * 
+ */
+  PGM_1.AddStep(0, 100, 35*60*1000); // step 1
+  PGM_1.AddStep(1000, 100, 35*60*1000); // step 2
+  PGM_1.AddStep(100, 200, 35*60*1000); // step 3
+  PGM_1.AddStep(200, 200, 35*60*1000); // step 4
+  PGM_1.AddStep(200, 595, 2*60*60*1000+30*60*1000); // step 5
+  PGM_1.AddStep(595, 595, 45*60*1000); // step 6
+  PGM_1.AddStep(595, 950, 2*60*60*1000+30*60*1000); // step 7
+  PGM_1.AddStep(950, 950, 15*60*1000); // step 8
+ 
+  
 
 }
 
