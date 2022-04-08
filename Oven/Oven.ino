@@ -178,14 +178,14 @@ void setup() {
  *            | 35 min      | 35 min      | 35 min      | 35 min      | 3 h 00 min  | 40 min      |             |             | 
  * 
  */
-  PGM_1.AddStep(0, 100, 35*60*1000); // step 1
-  PGM_1.AddStep(1000, 100, 35*60*1000); // step 2
-  PGM_1.AddStep(100, 200, 35*60*1000); // step 3
-  PGM_1.AddStep(200, 200, 35*60*1000); // step 4
-  PGM_1.AddStep(200, 595, 2*60*60*1000+30*60*1000); // step 5
-  PGM_1.AddStep(595, 595, 45*60*1000); // step 6
-  PGM_1.AddStep(595, 950, 2*60*60*1000+30*60*1000); // step 7
-  PGM_1.AddStep(950, 950, 15*60*1000); // step 8
+  PGM_1.AddStep(0  , 100, 35*60000); // step 1
+  PGM_1.AddStep(100, 100, 35*60000); // step 2
+  PGM_1.AddStep(100, 200, 35*60000); // step 3
+  PGM_1.AddStep(200, 200, 35*60000); // step 4
+  PGM_1.AddStep(200, 595, (2*60+30)*60000); // step 5
+  PGM_1.AddStep(595, 595, 45*60000); // step 6
+  PGM_1.AddStep(595, 950, (2*60+30)*60000); // step 7
+  PGM_1.AddStep(950, 950, 15*60000); // step 8
  
   
 
