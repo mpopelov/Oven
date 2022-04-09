@@ -14,7 +14,7 @@
 
 // fonts to be used
 #define FF21 FreeSansBold9pt7b
-#define FF22 FreeSansBold12pt7b
+//#define FF22 FreeSansBold12pt7b
 #define FF23 FreeSansBold18pt7b
 #define FF24 FreeSansBold24pt7b
 
@@ -215,9 +215,9 @@ void loop() {
     wnd->HandleEvent(x,y, true);
   }
 
-  uint8_t faultCode          = TS.readChip();    // read chip updated value and save error for easy access
+  uint8_t faultCode         = TS.readChip();    // read chip updated value and save error for easy access
   double ambientTemperature = TS.getAmbient();  // get updated value of chip ambient temperature
-  double probeTemperature   = TS.getProbe();    // get probe temperature as read by chip
+  double probeTemperature   = TS.getProbeLinearized(); //getProbe();    // get probe temperature as read by chip
   
   if (faultCode)                                        // Display error code if present
   {
@@ -233,7 +233,7 @@ void loop() {
   } 
   else
   {
-    strStatus = "Ambient temperature = " + String(ambientTemperature, 1) + " C";
+    strStatus = String(F("Ambient temperature = ")) + String(ambientTemperature, 1) + " C";
     strTempr = String(probeTemperature, 1) + " C";
     wnd->lblStatus->SetText(strStatus);
     wnd->lblTempr->SetText(strTempr);
