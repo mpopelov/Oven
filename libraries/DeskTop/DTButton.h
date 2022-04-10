@@ -52,6 +52,8 @@ class DTButton : public DTControl
 
      virtual bool HandleEvent(uint16_t x, uint16_t y, bool pressed);
      virtual void Render(bool parentCleared);
+     virtual void SetText(const String& t);
+     virtual void SetBtnColor(uint16_t c);
 
     protected:
      uint16_t       _btn_color; // button color

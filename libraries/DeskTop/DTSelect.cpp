@@ -136,7 +136,11 @@ void DTSelect::MovePrev()
  */
 void DTSelect::Render(bool parentCleared)
 {
-    // first check that rendering is at all possible
+    // skip control rendering if it's hidden but do not reset invalidation flag as the control
+    // might need to be rendered once visible again
+    if( !(_flags & DTCONTROL_FLAGS_VISIBLE) ) return;
+
+    // check that rendering is at all possible
     if(_lbl_max == 0 || _items_current == NULL) return; // if not - return with no impact
 
     // verify the first attempt to render - labels should be populated with data respectively
@@ -160,10 +164,6 @@ void DTSelect::Render(bool parentCleared)
         _flags &= ~DTSELECT_FLAGS_INITIALRENDER;
     }
 
-    // skip control rendering if it's hidden but do not reset invalidation flag as the control
-    // might need to be rendered once visible again
-    if( !(_flags & DTCONTROL_FLAGS_VISIBLE) ) return;
-
     // only render if invalidated flag is set
     if(_flags & DTCONTROL_FLAGS_INVALIDATED){
         
@@ -182,7 +182,7 @@ void DTSelect::Render(bool parentCleared)
 
     // let child controls render - they might have been invalidated
     for(int i=0; i < _lbl_max; i++){
-        _lbls[i]->Render(parentCleared); // parentCleared flag should have been adjusted by code above
+        _lbls[i]->Render(false); // parentCleared flag should have been adjusted by code above
     }
 }
 

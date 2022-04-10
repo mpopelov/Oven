@@ -72,7 +72,7 @@ class DTSelect : public DTControl
                      y + i*sel_lbl_height, // labels are sitting one under another without any gap
                                         w, // labels have width of the entire select control
                            sel_lbl_height, // labels have height calculated based on used font height
-                         DTLABEL_BRDR_ALL, // set flags to DTLABEL_BRDR_ALL for debug to see actual control placement
+                         DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, // set flags to DTLABEL_BRDR_ALL for debug to see actual control placement
                               item_bkg_cn, // initially set to normal background color
                                   TFT_RED, // set border colot to red - should not be visible in PROD
                               item_txt_cn, // normal text color

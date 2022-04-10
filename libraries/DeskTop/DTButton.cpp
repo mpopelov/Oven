@@ -32,10 +32,6 @@ bool DTButton::HandleEvent(uint16_t x, uint16_t y, bool pressed)
 {
     if( (x >= _x) && (y >= _y) && (x <= _x + _w) && (y <= _y + _h) )
     {
-        // invert the color regardless of pressed/released event
-        _btn_color = ~_btn_color;
-        _txt_color = ~_txt_color;
-
         // trigger call-back function
         _callback();
 
@@ -44,4 +40,16 @@ bool DTButton::HandleEvent(uint16_t x, uint16_t y, bool pressed)
         return true;
     }
     return false;
+}
+
+void DTButton::SetText(const String& t)
+{
+    _lbl = t;
+    Invalidate();
+}
+
+void DTButton::SetBtnColor(uint16_t c)
+{
+    _btn_color = c;
+    Invalidate();
 }

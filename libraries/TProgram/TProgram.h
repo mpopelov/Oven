@@ -82,6 +82,8 @@ class TProgram
      double CalculateSetPoint();    // calculate current program SetPoint
      void   Reset();                // reset program
 
+     String GetName() { return _name; };
+
     private:
      String         _name;          // program human readable name
      unsigned long  _timeElapsed;   // elapsed time from program start in milliseconds
