@@ -82,7 +82,9 @@ class TProgram
      double CalculateSetPoint();    // calculate current program SetPoint
      void   Reset();                // reset program
 
-     String GetName() { return _name; };
+     // property getters
+     const String& GetName() { return _name; };    // return program name
+     int GetStepsTotal() { return _nSteps; } //
 
     private:
      String         _name;          // program human readable name

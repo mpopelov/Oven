@@ -33,16 +33,26 @@
 // file names
 static const char FILE_TS_CALIBRATION[] PROGMEM = "/TouchCalData";
 static const char FILE_HTTP_INDEX[] PROGMEM = "/index.html";
-// button text labels
-static const char BTN_START[] PROGMEM = "Start";
-static const char BTN_STOP[] PROGMEM  = "Stop";
-static const char BTN_PROG[] PROGMEM  = "Prog";
-
+// button and label texts
+static const char BTN_START[] PROGMEM         = "Start";
+static const char BTN_STOP[] PROGMEM          = "Stop";
+static const char BTN_PROG[] PROGMEM          = "Prog";
+static const char LBL_EMPTY[] PROGMEM         = "---";
+static const char LBL_PROG[] PROGMEM          = "Program: ";
+static const char LBL_STEP[] PROGMEM          = "Step: ";
+static const char LBL_OF[] PROGMEM            = " of ";
+static const char LBL_STEPTARGET[] PROGMEM    = "Step target: ";
+static const char LBL_STEPTIME[] PROGMEM      = "Step time remaining: ";
+static const char LBL_TIMEREMAINING[] PROGMEM = "Time remaining: ";
 
 
 // test program placeholder
 TProgram** PGMList = NULL;
+TProgram* ActiveProgram = NULL;
 int PGMNo = 3;
+
+volatile bool IsPgmRunning = false; // gloabl flag for signalling controller program state
+
 
 
 
@@ -92,11 +102,11 @@ class SWindow : public DTWindow {
   }
 
   // public callback methods for 2 buttons
-  void OnButton_Up() { selProgs->MovePrev(); };
-  void OnButton_Down() { selProgs->MoveNext(); };
+  void OnButton_Up() { selProgs->MovePrev(); }
+  void OnButton_Down() { selProgs->MoveNext(); }
 
-  void OnButton_Ok() { _Result = true; _callback(); };
-  void OnButton_Cancel() { _Result = false; _callback(); };
+  void OnButton_Ok() { _Result = true; _callback(); }
+  void OnButton_Cancel() { _Result = false; _callback(); }
   
 
   // public controls
@@ -106,38 +116,64 @@ class SWindow : public DTWindow {
   DTButton* btnCancel;
   DTButton* btnDown;
 
-  // a variable to tell th result: ok/cancel
+  // a variable to tell the result: ok/cancel
   bool _Result;
-  
   // a callback to tell parent we are through
   DTDelegate _callback;
 };
 
- 
+
+
+
+
+
+
 // Main window class showing temperature, running program and a few buttons to have control over the device
 class CWindow : public DTWindow {
   public:
   CWindow(TFT_eSPI* gfx) :
   _RelayOn(false), _SelectOn(false), SWnd(NULL),
-  DTWindow(gfx, 0, 0, 320, 240, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND) {
+  DTWindow(gfx, 0, 0, 320, 240, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND),
+  // initialize child elements
+  btnProg( gfx, 250, 0, 70, 50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSB2, BTN_PROG, DTDelegate::create<CWindow,&CWindow::OnButton_PGM>(this)),
+  btnStart( gfx, 250, 51, 70, 50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREEN, DT_C_BACKGROUND, &FSB2, BTN_START, DTDelegate::create<CWindow,&CWindow::OnButton_STRTSTP>(this)),
+  // program details - Y offset 0
+           lblProgram( gfx,   0,   0,  80, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_PROG),
+       lblProgramName( gfx,  80,   0, 170, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_EMPTY),
+  // step details - Y offset 25
+              lblStep( gfx,   0,  25,  50, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_STEP),
+        lblStepNumber( gfx,  50,  25,  30, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_EMPTY),
+            lblStepOf( gfx,  80,  25,  30, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_OF),
+         lblStepTotal( gfx, 110,  25,  30, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_EMPTY),
+  // temperature main display - Y offset 50
+             lblTempr( gfx,   0,  50, 210, 110, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSB4, F("----C")),
+  // step timing values - Y offset 160
+          lblStepTime( gfx,   0, 160, 170, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_STEPTIME),
+     lblStepTimeValue( gfx, 170, 160,  75, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, F("00:00:00")),
+  // displaying program timer - Y offset 185
+       lblProgramTime( gfx,   0, 185, 170, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_TIMEREMAINING),
+  lblProgramTimeValue( gfx, 170, 185,  75, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, F("00:00:00")),
+  // status label - Y offset 210
+            lblStatus( gfx,   0, 210, 320, 30, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, F("Initializing..."))
+  {
 
-    // Add program select button
-    btnProg = new DTButton( gfx, 250, 0, 70, 50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSB2, BTN_PROG, 
-    DTDelegate::create<CWindow,&CWindow::OnButton_PGM>(this) );
-    AddControl(btnProg);
-
-    // Add start/stop button
-    btnStart = new DTButton( gfx, 250, 51, 70, 50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREEN, DT_C_BACKGROUND, &FSB2, BTN_START,
-    DTDelegate::create<CWindow,&CWindow::OnButton_STRTSTP>(this) );
-    AddControl(btnStart);
+    // Add controls to handling stack
+    AddControl(&lblProgram);
+    AddControl(&lblProgramName);
+    AddControl(&lblStep);
+    AddControl(&lblStepNumber);
+    AddControl(&lblStepOf);
+    AddControl(&lblStepTotal);
+    AddControl(&lblTempr);
+    AddControl(&lblStepTime);
+    AddControl(&lblStepTimeValue);
+    AddControl(&lblProgramTime);
+    AddControl(&lblProgramTimeValue);
+    AddControl(&lblStatus);
+    AddControl(&btnProg);
+    AddControl(&btnStart);
     
-    // add status text label
-    lblStatus = new DTLabel( gfx, 0, 210, 320, 30, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED | DTLABEL_BRDR_TOP | DTLABEL_BRDR_LEFT, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, F("Initializing..."));
-    AddControl(lblStatus);
     
-    // add temperature display label
-    lblTempr = new DTLabel( gfx, 0, 0, 210, 210, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED | DTLABEL_BRDR_NONE, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSB4, F("----C"));
-    AddControl(lblTempr);
   }
 
 
@@ -148,12 +184,19 @@ class CWindow : public DTWindow {
     _SelectOn = false;
     if(SWnd->_Result){
       // new program was selected
-      // for test - just set button text to idx instead of PGM text
-      btnProg->SetText(String(SWnd->selProgs->GetSelected()));
+      // update active program with the one selected only if controller is not in running mode
+      if(!IsPgmRunning){
+       uint16_t _pgmIdx = SWnd->selProgs->GetSelected();
+       if(_pgmIdx < PGMNo) ActiveProgram = PGMList[_pgmIdx];
+       // set selected program details
+       lblProgramName.SetText(ActiveProgram->GetName());
+       lblStepTotal.SetText(String(ActiveProgram->GetStepsTotal()));
+       // set values for other controls
+      }
     }else{
       // just cancelled
     }
-  };
+  }
   
   // callback for program select button
   void OnButton_PGM()
@@ -163,7 +206,7 @@ class CWindow : public DTWindow {
     _SelectOn = true;
     SWnd = new SWindow(_gfx, DTDelegate::create<CWindow,&CWindow::OnSelect>(this));
     SWnd->Invalidate();
-  };
+  }
 
   // overload HandleEvent function
   virtual bool HandleEvent(uint16_t x, uint16_t y, bool pressed)
@@ -184,7 +227,7 @@ class CWindow : public DTWindow {
       // pass events to our own controls
       return DTWindow::HandleEvent(x, y, pressed);
     }
-  };
+  }
 
   // overload Render function
   virtual void Render(bool parentCleared)
@@ -195,30 +238,57 @@ class CWindow : public DTWindow {
     }else{
       DTWindow::Render(parentCleared);
     }
-  };
+  }
 
 
   
   // callback for start/stop button
   void OnButton_STRTSTP() {
-    if(_RelayOn){
+    if(IsPgmRunning){
+      // program running - emergency stop
+      IsPgmRunning = false;
       digitalWrite(D1, LOW);
-      btnStart->SetText(BTN_START);
-      btnStart->SetBtnColor(DT_C_GREEN);
+      btnStart.SetText(BTN_START);
+      btnStart.SetBtnColor(DT_C_GREEN);
+      _RelayOn = false;
     }else{
-      digitalWrite(D1, HIGH);
-      btnStart->SetText(BTN_STOP);
-      btnStart->SetBtnColor(DT_C_RED);
+      // program is not running - start active program and let PID controller decide on relay state.
+      if(ActiveProgram != NULL){
+        // only start things if there is an active program selected
+        IsPgmRunning = true;
+        btnStart.SetText(BTN_STOP);
+        btnStart.SetBtnColor(DT_C_RED);
+        // test case - enable relay and set 1st step
+        digitalWrite(D1, HIGH);
+        _RelayOn = true;
+        lblStepNumber.SetText("1");
+      }
+      // should there be some message to the user about the need to select progam ?
     }
-    _RelayOn = !_RelayOn;
     Invalidate();
-  };
+  }
 
-  // public labels with temperature and status text
-  DTLabel* lblTempr;
-  DTLabel* lblStatus;
-  DTButton* btnProg;
-  DTButton* btnStart;
+  /*
+  / Members holding all control elements
+  */
+  // buttons
+  DTButton btnProg;
+  DTButton btnStart;
+  
+  // labels
+  DTLabel lblTempr; // current measured temperature
+  DTLabel lblStatus; // status text label at the bottom of the screen
+  DTLabel lblProgram; // Label "Program; "
+  DTLabel lblProgramName; // actual program name
+  DTLabel lblStep; // Label "Step: "
+  DTLabel lblStepNumber; // current step number
+  DTLabel lblStepOf; // 
+  DTLabel lblStepTotal; // total number of steps
+
+  DTLabel lblStepTime; // total number of steps
+  DTLabel lblStepTimeValue; // total number of steps
+  DTLabel lblProgramTime; // total number of steps
+  DTLabel lblProgramTimeValue; // total number of steps
 
   bool _RelayOn;
   bool _SelectOn;
@@ -246,15 +316,6 @@ TSensor TS(D2, false);  ///< Create an instance of MAX31855 sensor
 
 
 
-
-
-
-
-
-
-
-
-
 //global instances
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSPI* gfx = &tft;
@@ -262,6 +323,8 @@ CWindow* wnd = NULL;
 
 unsigned long ticks_TS = 0;
 unsigned long ticks_TSENSOR = 0;
+unsigned long ticks_PGM = 0;
+unsigned long ticks_PGM_Total = 0;
 
 
 
@@ -407,6 +470,18 @@ void loop() {
   unsigned long ticks = millis();
   uint16_t x,y;
   bool pressed;
+  char buff[32];
+
+  // check if the program is to be run and start control loop
+  if(IsPgmRunning && (ticks - ticks_PGM > 1000)){
+    // display time elapsed since program start
+    ticks_PGM_Total += (ticks - ticks_PGM);
+    ticks_PGM = ticks;
+
+    // pring timer
+    snprintf(buff, 32, "%02u:%02u:%02u", TPGM_MS_HOURS(ticks_PGM_Total), TPGM_MS_MINUTES(ticks_PGM_Total), TPGM_MS_SECONDS(ticks_PGM_Total));
+    wnd->lblProgramTimeValue.SetText(buff);
+  }
 
   if ( (ticks - ticks_TSENSOR >= TSENSOR_INTERVAL) )
   {
@@ -417,21 +492,21 @@ void loop() {
     if (faultCode)                                        // Display error code if present
     {
       if (faultCode & B001) {
-        wnd->lblStatus->SetText("Fault: Wire not connected");
+        wnd->lblStatus.SetText("Fault: Wire not connected");
       }
       if (faultCode & B010) {
-        wnd->lblStatus->SetText("Fault: Short-circuited to Ground (negative)");
+        wnd->lblStatus.SetText("Fault: Short-circuited to Ground (negative)");
       }
       if (faultCode & B100) {
-        wnd->lblStatus->SetText("Fault: Short-circuited to VCC (positive)");
+        wnd->lblStatus.SetText("Fault: Short-circuited to VCC (positive)");
       }
     }
     else
     {
       strStatus = String(F("Ambient temperature = ")) + String(ambientTemperature, 1) + " C";
       strTempr = String(probeTemperature, 1) + " C";
-      wnd->lblStatus->SetText(strStatus);
-      wnd->lblTempr->SetText(strTempr);
+      wnd->lblStatus.SetText(strStatus);
+      wnd->lblTempr.SetText(strTempr);
     }
     
     // finally save timer value
