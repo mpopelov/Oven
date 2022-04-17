@@ -64,7 +64,7 @@ class TProgram
 {
     public:
      TProgram(int numSteps, String name)
-     : _name(name), _nSteps(numSteps), _timeElapsed(0), _timeLast(0), _totalDuration(0), _idx(0)
+     : _name(name), _nSteps(numSteps), _timeElapsed(0), _timeElapsedStep(0), _timeLast(0), _totalDuration(0), _idx(0)
      {
          if(_nSteps > 0) _steps = new TProgramStep[_nSteps];
      }
@@ -83,12 +83,17 @@ class TProgram
      void   Reset();                // reset program
 
      // property getters
-     const String& GetName() { return _name; };    // return program name
-     int GetStepsTotal() { return _nSteps; } //
+     const String& GetName() { return _name; }; // return program name
+     int GetStepsTotal() { return _nSteps; }    // return total number of steps in control program
+     int GetStepsCurrent() { return _idx + 1; }     // return current step of the program in human acceptable form (i.e. starting with 1)
+     unsigned long GetDurationTotal() { return _totalDuration; } // return precalculated total duration of the program
+     unsigned long GetDurationElapsed() { return _timeElapsed; } // return time elapsed since program start
+     unsigned long GetDurationElapsedStep() { return _timeElapsedStep; } // return time elapsed within current step
 
     private:
      String         _name;          // program human readable name
      unsigned long  _timeElapsed;   // elapsed time from program start in milliseconds
+     unsigned long  _timeElapsedStep; // time elapsed within the step
      unsigned long  _timeLast;      // timestamp of last SetPoint calculation to measure time offsets
      unsigned long  _totalDuration; // precalculated value of total program duration
 
@@ -104,17 +109,18 @@ class TProgram
 
 /**
  * @brief Some useful macros for extracting hours, minutes and seconds part from milliseconds value
- * 
+ * @details detailed formulas:
+ *          uint32_t sec = millis() / 1000ul;       // millis into seconds
+ *          int timeHours = (sec / 3600ul);         // hours
+ *          int timeMins = (sec % 3600ul) / 60ul;   // minutes
+ *          int timeSecs = (sec % 3600ul) % 60ul;   // seconds
  */
-#define TPGM_MS_HOURS(_val_)    ((_val_ / 1000ul) / 3600ul)
+#define TPGM_MS_HOURS(_val_)     ((_val_ / 1000ul) / 3600ul)
 #define TPGM_MS_MINUTES(_val_)  (((_val_ / 1000ul) % 3600ul) / 60ul)
-#define TPGM_MS_SECONDS(_val_)  (((_val_ / 1000ul) % 1000ul) % 60ul)
+#define TPGM_MS_SECONDS(_val_)  (((_val_ / 1000ul) % 3600ul) % 60ul)
 
-    /*
-     uint32_t sec = millis() / 1000ul;      // total seconds
-     int timeHours = (sec / 3600ul);        // hours
-     int timeMins = (sec % 3600ul) / 60ul;  // minutes
-     int timeSecs = (sec % 3600ul) % 60ul;  // seconds
-    */
+#define TPGM_HOURS_MS(_val_)    (_val_ * 3600000ul)
+#define TPGM_MINUTES_MS(_val_)  (_val_ * 60000ul)
+#define TPGM_SECONDS_MS(_val_)  (_val_ * 1000ul)
 
 #endif

@@ -38,93 +38,92 @@ static const char BTN_START[] PROGMEM         = "Start";
 static const char BTN_STOP[] PROGMEM          = "Stop";
 static const char BTN_PROG[] PROGMEM          = "Prog";
 static const char LBL_EMPTY[] PROGMEM         = "---";
+static const char LBL_TEMPRMPTY[] PROGMEM     = "----C";
+static const char LBL_TIMEREMPTY[] PROGMEM    = "00:00:00";
 static const char LBL_PROG[] PROGMEM          = "Program: ";
 static const char LBL_STEP[] PROGMEM          = "Step: ";
 static const char LBL_OF[] PROGMEM            = " of ";
 static const char LBL_STEPTARGET[] PROGMEM    = "Step target: ";
-static const char LBL_STEPTIME[] PROGMEM      = "Step time remaining: ";
-static const char LBL_TIMEREMAINING[] PROGMEM = "Time remaining: ";
+static const char LBL_STEPTIME[] PROGMEM      = "Step remaining: ";
+static const char LBL_TIMEREMAINING[] PROGMEM = "Program remaining: ";
 
 
 // test program placeholder
 TProgram** PGMList = NULL;
-TProgram* ActiveProgram = NULL;
-int PGMNo = 3;
+TProgram* ActiveProgram = NULL; // current active program
+PIDControl* PID = NULL; // pid control instance
+double U = 0; // current controlling signal value
+
+int PGMNo = 4;
 
 volatile bool IsPgmRunning = false; // gloabl flag for signalling controller program state
+volatile bool PgmHasStarted = false; // check if begin() was properly called
 
 
+// file system
+FS* fileSystem = &LittleFS;
+LittleFSConfig fileSystemConfig = LittleFSConfig();
+
+// K-type temperature sensor instance
+TSensor TS(D2, false);  ///< Create an instance of MAX31855 sensor
+
+
+
+
+//global instances
+TFT_eSPI tft = TFT_eSPI();
+TFT_eSPI* gfx = &tft;
+
+unsigned long ticks_TS = 0;
+unsigned long ticks_TSENSOR = 0;
+unsigned long ticks_PGM = 0;
+unsigned long ticks_PGM_Total = 0;
 
 
 
 
 /***********************************************
- * Classes for windows used in sketch
+ * Classes for GUI windows used in sketch
  ***********************************************/
+
 // a class showing window that allows selecting programs from memory
 class SWindow : public DTWindow {
   public:
   SWindow(TFT_eSPI* gfx, DTDelegate callback) :
-  DTWindow(gfx, 0, 0, 320, 240, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND),
+  DTWindow( gfx, 0, 0, 320, 240, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND),
+      btnUp( gfx, 270,   0,  50,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSB2, "UP", DTDelegate::create<SWindow,&SWindow::OnButton_Up>(this)),
+      btnOk( gfx, 270,  51,  50,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREEN, DT_C_BACKGROUND, &FSB2, "OK", DTDelegate::create<SWindow,&SWindow::OnButton_Ok>(this)),
+  btnCancel( gfx, 270, 102,  50,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_RED, DT_C_BACKGROUND, &FSB2, "X", DTDelegate::create<SWindow,&SWindow::OnButton_Cancel>(this)),
+    btnDown( gfx, 270, 153,  50,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSB2, "DN", DTDelegate::create<SWindow,&SWindow::OnButton_Down>(this)),
+   selProgs( gfx,   0,   0, 269, 240, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_LIGHTGREEN, DT_C_BACKGROUND, DT_C_BACKGROUND, DT_C_LIGHTGREEN, &FSN1),
   _Result(false), _callback(callback)
   {
-
-    // Add Up button
-    btnUp = new DTButton( gfx, 270, 0, 50, 50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSB2, "UP", 
-    DTDelegate::create<SWindow,&SWindow::OnButton_Up>(this) );
-    AddControl(btnUp);
-    
-    // Add OK button
-    btnOk = new DTButton( gfx, 270, 51, 50, 50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREEN, DT_C_BACKGROUND, &FSB2, "OK", 
-    DTDelegate::create<SWindow,&SWindow::OnButton_Ok>(this) );
-    AddControl(btnOk);
-
-    // Add Cancel
-    btnCancel = new DTButton( gfx, 270, 102, 50, 50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_RED, DT_C_BACKGROUND, &FSB2, "X",
-    DTDelegate::create<SWindow,&SWindow::OnButton_Cancel>(this) );
-    AddControl(btnCancel);
-
-    // Add Down
-    btnDown = new DTButton( gfx, 270, 153, 50, 50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSB2, "DN",
-    DTDelegate::create<SWindow,&SWindow::OnButton_Down>(this) );
-    AddControl(btnDown);
-
-    // add select control an fill it with data
-    selProgs = new DTSelect( gfx, 0, 0, 269, 240, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND,
-                              DT_C_LIGHTGREEN, DT_C_BACKGROUND, // text color normal / selected
-                              DT_C_BACKGROUND, DT_C_LIGHTGREEN, // item background normal / selected
-                              &FSN1);
-    
-    // add items to select to show them on the screen
-    if(PGMList != NULL) for(int idx=0; idx < PGMNo; idx++) selProgs->AddItem(idx, PGMList[idx]->GetName());
-
-    AddControl(selProgs);
+    AddControl(&btnUp);
+    AddControl(&btnOk);
+    AddControl(&btnCancel);
+    AddControl(&btnDown);
+    AddControl(&selProgs);
+    if(PGMList != NULL) for(int idx=0; idx < PGMNo; idx++) selProgs.AddItem(idx, PGMList[idx]->GetName());
   }
 
   // public callback methods for 2 buttons
-  void OnButton_Up() { selProgs->MovePrev(); }
-  void OnButton_Down() { selProgs->MoveNext(); }
-
+  void OnButton_Up() { selProgs.MovePrev(); }
+  void OnButton_Down() { selProgs.MoveNext(); }
   void OnButton_Ok() { _Result = true; _callback(); }
   void OnButton_Cancel() { _Result = false; _callback(); }
-  
 
   // public controls
-  DTSelect* selProgs;
-  DTButton* btnUp;
-  DTButton* btnOk;
-  DTButton* btnCancel;
-  DTButton* btnDown;
+  DTSelect selProgs;
+  DTButton btnUp;
+  DTButton btnOk;
+  DTButton btnCancel;
+  DTButton btnDown;
 
   // a variable to tell the result: ok/cancel
   bool _Result;
-  // a callback to tell parent we are through
+  // a callback to tell parent we are done
   DTDelegate _callback;
 };
-
-
-
-
 
 
 
@@ -135,28 +134,28 @@ class CWindow : public DTWindow {
   _RelayOn(false), _SelectOn(false), SWnd(NULL),
   DTWindow(gfx, 0, 0, 320, 240, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND),
   // initialize child elements
-  btnProg( gfx, 250, 0, 70, 50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSB2, BTN_PROG, DTDelegate::create<CWindow,&CWindow::OnButton_PGM>(this)),
-  btnStart( gfx, 250, 51, 70, 50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREEN, DT_C_BACKGROUND, &FSB2, BTN_START, DTDelegate::create<CWindow,&CWindow::OnButton_STRTSTP>(this)),
+              btnProg( gfx, 250,   0,  70,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSB2, BTN_PROG, DTDelegate::create<CWindow,&CWindow::OnButton_PGM>(this)),
+             btnStart( gfx, 250,  51,  70,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREEN, DT_C_BACKGROUND, &FSB2, BTN_START, DTDelegate::create<CWindow,&CWindow::OnButton_STRTSTP>(this)),
   // program details - Y offset 0
-           lblProgram( gfx,   0,   0,  80, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_PROG),
-       lblProgramName( gfx,  80,   0, 170, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_EMPTY),
+           lblProgram( gfx,   0,   0,  80,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_PROG),
+       lblProgramName( gfx,  80,   0, 170,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_EMPTY),
   // step details - Y offset 25
-              lblStep( gfx,   0,  25,  50, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_STEP),
-        lblStepNumber( gfx,  50,  25,  30, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_EMPTY),
-            lblStepOf( gfx,  80,  25,  30, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_OF),
-         lblStepTotal( gfx, 110,  25,  30, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_EMPTY),
+              lblStep( gfx,   0,  25,  50,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_STEP),
+        lblStepNumber( gfx,  50,  25,  30,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_EMPTY),
+            lblStepOf( gfx,  80,  25,  30,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_OF),
+         lblStepTotal( gfx, 110,  25,  30,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_EMPTY),
   // temperature main display - Y offset 50
-             lblTempr( gfx,   0,  50, 210, 110, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSB4, F("----C")),
+             lblTempr( gfx,   0,  50, 210, 110, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSB4, LBL_TEMPRMPTY),
+       lblTemprTarget( gfx, 135, 135,  75,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_RED, &FSN1, LBL_TEMPRMPTY),
   // step timing values - Y offset 160
-          lblStepTime( gfx,   0, 160, 170, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_STEPTIME),
-     lblStepTimeValue( gfx, 170, 160,  75, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, F("00:00:00")),
+          lblStepTime( gfx,   0, 160, 170,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_STEPTIME),
+     lblStepTimeValue( gfx, 170, 160,  75,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_TIMEREMPTY),
   // displaying program timer - Y offset 185
-       lblProgramTime( gfx,   0, 185, 170, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_TIMEREMAINING),
-  lblProgramTimeValue( gfx, 170, 185,  75, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, F("00:00:00")),
+       lblProgramTime( gfx,   0, 185, 170,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_TIMEREMAINING),
+  lblProgramTimeValue( gfx, 170, 185,  75,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_TIMEREMPTY),
   // status label - Y offset 210
-            lblStatus( gfx,   0, 210, 320, 30, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, F("Initializing..."))
+            lblStatus( gfx,   0, 210, 320,  30, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, F("Initializing..."))
   {
-
     // Add controls to handling stack
     AddControl(&lblProgram);
     AddControl(&lblProgramName);
@@ -164,6 +163,7 @@ class CWindow : public DTWindow {
     AddControl(&lblStepNumber);
     AddControl(&lblStepOf);
     AddControl(&lblStepTotal);
+    AddControl(&lblTemprTarget);
     AddControl(&lblTempr);
     AddControl(&lblStepTime);
     AddControl(&lblStepTimeValue);
@@ -172,8 +172,6 @@ class CWindow : public DTWindow {
     AddControl(&lblStatus);
     AddControl(&btnProg);
     AddControl(&btnStart);
-    
-    
   }
 
 
@@ -186,12 +184,19 @@ class CWindow : public DTWindow {
       // new program was selected
       // update active program with the one selected only if controller is not in running mode
       if(!IsPgmRunning){
-       uint16_t _pgmIdx = SWnd->selProgs->GetSelected();
+       uint16_t _pgmIdx = SWnd->selProgs.GetSelected();
        if(_pgmIdx < PGMNo) ActiveProgram = PGMList[_pgmIdx];
        // set selected program details
        lblProgramName.SetText(ActiveProgram->GetName());
        lblStepTotal.SetText(String(ActiveProgram->GetStepsTotal()));
-       // set values for other controls
+       lblStepNumber.SetText(String(ActiveProgram->GetStepsCurrent()));
+
+       // show initial duration of selected program
+       char buff[12];
+       unsigned long t = ActiveProgram->GetDurationTotal();
+       snprintf(buff, 12, "%02u:%02u:%02u", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
+       lblProgramTimeValue.SetText(String(buff));
+       // end of adjusting controls
       }
     }else{
       // just cancelled
@@ -246,24 +251,24 @@ class CWindow : public DTWindow {
   void OnButton_STRTSTP() {
     if(IsPgmRunning){
       // program running - emergency stop
-      IsPgmRunning = false;
       digitalWrite(D1, LOW);
+      IsPgmRunning = false;
+      _RelayOn = false;
       btnStart.SetText(BTN_START);
       btnStart.SetBtnColor(DT_C_GREEN);
-      _RelayOn = false;
     }else{
       // program is not running - start active program and let PID controller decide on relay state.
       if(ActiveProgram != NULL){
         // only start things if there is an active program selected
+        // so far just raise the flag and signal program handling code to du all necessary steps to update screen
+        // and calculate setpoint and control action
         IsPgmRunning = true;
         btnStart.SetText(BTN_STOP);
         btnStart.SetBtnColor(DT_C_RED);
         // test case - enable relay and set 1st step
-        digitalWrite(D1, HIGH);
-        _RelayOn = true;
-        lblStepNumber.SetText("1");
+        // digitalWrite(D1, HIGH);
       }
-      // should there be some message to the user about the need to select progam ?
+      // should there be some message to user about the need to select progam ?
     }
     Invalidate();
   }
@@ -277,6 +282,7 @@ class CWindow : public DTWindow {
   
   // labels
   DTLabel lblTempr; // current measured temperature
+  DTLabel lblTemprTarget; // current target temperature (SetPoint)
   DTLabel lblStatus; // status text label at the bottom of the screen
   DTLabel lblProgram; // Label "Program; "
   DTLabel lblProgramName; // actual program name
@@ -295,40 +301,7 @@ class CWindow : public DTWindow {
   SWindow* SWnd;
 };
 
-
-
-
-
-
-
-
-
-
-
-
-// file system
-FS* fileSystem = &LittleFS;
-LittleFSConfig fileSystemConfig = LittleFSConfig();
-
-// K-type temperature sensor instance
-TSensor TS(D2, false);  ///< Create an instance of MAX31855 sensor
-
-
-
-
-//global instances
-TFT_eSPI tft = TFT_eSPI();
-TFT_eSPI* gfx = &tft;
 CWindow* wnd = NULL;
-
-unsigned long ticks_TS = 0;
-unsigned long ticks_TSENSOR = 0;
-unsigned long ticks_PGM = 0;
-unsigned long ticks_PGM_Total = 0;
-
-
-
-
 
 
 //
@@ -417,8 +390,15 @@ void setup() {
 
  PGMList = new TProgram*[PGMNo];
 
- TProgram* p = new TProgram(8, "Utility Red");
- p->AddStep(0  , 100, 35*60000); // step 1
+ TProgram* p = new TProgram(3, "Testing PID");
+ p->AddStep(28 , 100, 1*60000); // step 1
+ p->AddStep(100, 100, 1*60000); // step 2
+ p->AddStep(100, 40, 1*60000); // step 3
+ p->Reset();
+ PGMList[0] = p;
+
+ p = new TProgram(8, "Utility Red");
+ p->AddStep(28 , 100, 35*60000); // step 1
  p->AddStep(100, 100, 35*60000); // step 2
  p->AddStep(100, 200, 35*60000); // step 3
  p->AddStep(200, 200, 35*60000); // step 4
@@ -426,10 +406,11 @@ void setup() {
  p->AddStep(595, 595, 45*60000); // step 6
  p->AddStep(595, 950, (2*60+30)*60000); // step 7
  p->AddStep(950, 950, 15*60000); // step 8
- PGMList[0] = p;
+ p->Reset();
+ PGMList[1] = p;
 
  p = new TProgram(8, "Utility White");
- p->AddStep(0  , 100, 35*60000); // step 1
+ p->AddStep(28 , 100, 35*60000); // step 1
  p->AddStep(100, 100, 35*60000); // step 2
  p->AddStep(100, 200, 35*60000); // step 3
  p->AddStep(200, 200, 35*60000); // step 4
@@ -437,16 +418,18 @@ void setup() {
  p->AddStep(595, 595, 45*60000); // step 6
  p->AddStep(595, 1000, (2*60+30)*60000); // step 7
  p->AddStep(1000, 1000, 15*60000); // step 8
- PGMList[1] = p;
+ p->Reset();
+ PGMList[2] = p;
 
  p = new TProgram(6, "Glazing");
- p->AddStep(0  , 100, 35*60000); // step 1
+ p->AddStep(28  , 100, 35*60000); // step 1
  p->AddStep(100, 100, 35*60000); // step 2
  p->AddStep(100, 200, 35*60000); // step 3
  p->AddStep(200, 200, 35*60000); // step 4
  p->AddStep(200, 1250, (3*60)*60000); // step 5
  p->AddStep(1250, 1250, 40*60000); // step 6
- PGMList[2] = p;
+ p->Reset();
+ PGMList[3] = p;
 
  // create main window - all details of setting up elements are in CWindow class ctor
  wnd = new CWindow(gfx);
@@ -464,31 +447,33 @@ void setup() {
 String strStatus = String("");
 String strTempr = String("");
 
+#define BUFF_LEN 32
 
 void loop() {
 
   unsigned long ticks = millis();
   uint16_t x,y;
   bool pressed;
-  char buff[32];
+  char buff[BUFF_LEN];
 
-  // check if the program is to be run and start control loop
-  if(IsPgmRunning && (ticks - ticks_PGM > 1000)){
-    // display time elapsed since program start
-    ticks_PGM_Total += (ticks - ticks_PGM);
-    ticks_PGM = ticks;
-
-    // pring timer
-    snprintf(buff, 32, "%02u:%02u:%02u", TPGM_MS_HOURS(ticks_PGM_Total), TPGM_MS_MINUTES(ticks_PGM_Total), TPGM_MS_SECONDS(ticks_PGM_Total));
-    wnd->lblProgramTimeValue.SetText(buff);
+  // allow handling touch screen events early to allow emergency stop as early as possible
+  if ( (ticks - ticks_TS >= TS_USER_TOLERANCE) && gfx->getTouch(&x, &y) )
+  {
+    wnd->HandleEvent(x,y, true);
+    // finally save timer value
+    ticks_TS = ticks;
   }
 
-  if ( (ticks - ticks_TSENSOR >= TSENSOR_INTERVAL) )
+  // now the main functionality
+  // measure temperature / apply control if needed / update screen elements
+  if ( ticks - ticks_TSENSOR >= TSENSOR_INTERVAL )
   {
     // read temperature and update values on screen
     uint8_t faultCode         = TS.readChip();    // read chip updated value and save error for easy access
     double ambientTemperature = TS.getAmbient();  // get updated value of chip ambient temperature
     double probeTemperature   = TS.getProbeLinearized(); // get probe temperature as read by chip
+    double SetPointTemperature = NAN;                       // current set point as returned by program running
+
     if (faultCode)                                        // Display error code if present
     {
       if (faultCode & B001) {
@@ -503,23 +488,85 @@ void loop() {
     }
     else
     {
-      strStatus = String(F("Ambient temperature = ")) + String(ambientTemperature, 1) + " C";
+      //strStatus = String(F("Ambient temperature = ")) + String(ambientTemperature, 1) + " C";
       strTempr = String(probeTemperature, 1) + " C";
-      wnd->lblStatus.SetText(strStatus);
-      wnd->lblTempr.SetText(strTempr);
     }
+
+    // check if program has to be run (and only if active program is properly set)
+    if(IsPgmRunning && ActiveProgram != NULL){
+      // check if this is the first time program starts
+      if(PgmHasStarted){
+        // do the normal routine
+        SetPointTemperature = ActiveProgram->CalculateSetPoint();
+
+      }else{
+        // this is the initial step in the program
+        PID = new PIDControl( 1, 1, 1, TSENSOR_INTERVAL);
+        SetPointTemperature = ActiveProgram->Begin();
+        wnd->lblTemprTarget.Visible(true);
+        PgmHasStarted = true;
+      }
+
+      // make a check for program termination
+      if(isnan(SetPointTemperature)){
+        // meaning an error or reached the end of the program
+        IsPgmRunning = false;
+        strStatus = "Program terminating...";
+      }else{
+        // do common staff - calculate controlling signal and turn relay on/off accordingly
+        U = PID->Evaluate(SetPointTemperature, probeTemperature, U);
+        digitalWrite(D1, (U > 0.0 ? HIGH : LOW));
+
+        // update labels' values
+        wnd->lblTemprTarget.SetText(String(SetPointTemperature,2) + " C");
+        wnd->lblStepNumber.SetText(String(ActiveProgram->GetStepsCurrent()));
+
+        // update program remaining time
+        unsigned long t = ActiveProgram->GetDurationTotal() - ActiveProgram->GetDurationElapsed();
+        snprintf(buff, BUFF_LEN, "%02u:%02u:%02u", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
+        wnd->lblProgramTimeValue.SetText(buff);
+
+        // update step remaining time
+        t = ActiveProgram->GetDurationElapsedStep();
+        snprintf(buff, BUFF_LEN, "%02u:%02u:%02u", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
+        wnd->lblStepTimeValue.SetText(buff);
+
+        strStatus = String("Control U = ") + String(U,6);
+      }
+
+    }else{
+
+      // check if running flag was reset but program was actually running - take actions to stop everything and reset program
+      if(PgmHasStarted){
+        // stop activity on heater if any and reset program
+        digitalWrite(D1, LOW); // turn relay switch off
+        if(ActiveProgram != NULL) ActiveProgram->Reset();
+        // reset PID control
+        if(PID != NULL){
+          delete PID;
+          PID = NULL;
+        }
+        U = 0.0; // reset controlling signal
+        PgmHasStarted = false;
+        wnd->lblTemprTarget.Visible(false);
+        strStatus = "Program has ended";
+        // reset GUI button
+        wnd->_RelayOn = false;
+        wnd->btnStart.SetText(BTN_START);
+        wnd->btnStart.SetBtnColor(DT_C_GREEN);
+        wnd->Invalidate();
+      }
+    }
+
+    // update values on the screen
     
+    wnd->lblStatus.SetText(strStatus); // update status text at the bottom of the screen
+    wnd->lblTempr.SetText(strTempr); // update temperature value
+
     // finally save timer value
     ticks_TSENSOR = ticks;
   }
 
-  if ( (ticks - ticks_TS >= TS_USER_TOLERANCE) && gfx->getTouch(&x, &y) )
-  {
-    wnd->HandleEvent(x,y, true);
-    // finally save timer value
-    ticks_TS = ticks;
-  }
-  
-  // and redraw screen if needed
+  // and finally redraw screen if needed
   wnd->Render(false);
 }

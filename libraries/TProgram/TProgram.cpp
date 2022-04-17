@@ -80,6 +80,7 @@ double TProgram::Begin()
 
     _idx = 0;                               // reset current step index
     _timeElapsed = 0;                       // reset elapsed time program is running
+    _timeElapsedStep = 0;
     _timeLast = millis();                   // save timer value at start of the program
     return _steps[0].CalculateSetPoint(0);  // returns starting temperature of the very first step in the program
 }
@@ -109,11 +110,19 @@ double TProgram::CalculateSetPoint()
     // calculate time delta to get correct SetPoint and return it to the caller
     // step SetPoint function expects time delta from start of the step
     // which is equal: step duration - (dueTime - timeElapsed)
-    return _steps[_idx].CalculateSetPoint( _steps[_idx].GetDuration() - _steps[_idx].GetDueTime() + _timeElapsed );
+    _timeElapsedStep = _steps[_idx].GetDuration() - _steps[_idx].GetDueTime() + _timeElapsed;
+    return _steps[_idx].CalculateSetPoint( _timeElapsedStep );
 }
 
+/**
+ * @brief Reset program to its initial state as before running
+ * 
+ */
 void TProgram::Reset()
 {
     //reset program to its initial state
-    unsigned long t = TPGM_MS_HOURS(7235684235);
+    _timeElapsed = 0;
+    _timeElapsedStep = 0;
+    _timeLast = 0;
+    _idx = 0;
 }
