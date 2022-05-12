@@ -1,24 +1,35 @@
 /*
  * Oven project - a controller for electrical heat oven
 */
-
-#include <TFT_eSPI.h> // Hardware-specific library
 #include <SPI.h> // SPI for accessing devices on SPI bus
-#include <DeskTop.h> // include for simple desktop class library
+#include <TFT_eSPI.h> // Hardware-specific library
 #include <LittleFS.h> // include for file system support
-#include <TSensor.h> // include for K-type sensor
 
+#include <ESP8266WiFi.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+
+
+#include <DeskTop.h> // include for simple desktop class library
+#include <TSensor.h> // include for K-type sensor
 #include <PIDControl.h>
 #include <TProgram.h>
+
+/* guess what ... */
+#include "topsecret.h"
+#ifndef AP_SSID
+#define AP_SSID "your_ap_ssid"
+#endif
+#ifndef AP_PWD
+#define AP_PWD "your_ap_password"
+#endif
 
 
 // fonts to be used
 #define FSN1 FreeSans9pt7b // for status text and small labels
 #define FSB1 FreeSansBold9pt7b // bold font for small text
-
 #define FSN2 FreeSans12pt7b // for medium sized text
 #define FSB2 FreeSansBold12pt7b // for medium sized text in bold
-
 #define FSB3 FreeSansBold18pt7b
 #define FSB4 FreeSansBold24pt7b
 
@@ -48,6 +59,25 @@ static const char LBL_STEPTIME[] PROGMEM      = "Step remaining: ";
 static const char LBL_TIMEREMAINING[] PROGMEM = "Program remaining: ";
 
 
+// K-type temperature sensor instance
+TSensor TS(D2, false);  ///< Create an instance of MAX31855 sensor
+
+//global instances
+TFT_eSPI tft = TFT_eSPI();  // TFT display driver
+TFT_eSPI* gfx = &tft;
+
+FS* fileSystem = &LittleFS; // file system instance
+LittleFSConfig fileSystemConfig = LittleFSConfig();
+
+AsyncWebServer WebServer(80);
+AsyncEventSource WebEventSource("/ev");
+
+unsigned long ticks_TS = 0;
+unsigned long ticks_TSENSOR = 0;
+unsigned long ticks_PGM = 0;
+unsigned long ticks_PGM_Total = 0;
+
+
 // test program placeholder
 TProgram** PGMList = NULL;
 TProgram* ActiveProgram = NULL; // current active program
@@ -60,24 +90,6 @@ volatile bool IsPgmRunning = false; // gloabl flag for signalling controller pro
 volatile bool PgmHasStarted = false; // check if begin() was properly called
 
 
-// file system
-FS* fileSystem = &LittleFS;
-LittleFSConfig fileSystemConfig = LittleFSConfig();
-
-// K-type temperature sensor instance
-TSensor TS(D2, false);  ///< Create an instance of MAX31855 sensor
-
-
-
-
-//global instances
-TFT_eSPI tft = TFT_eSPI();
-TFT_eSPI* gfx = &tft;
-
-unsigned long ticks_TS = 0;
-unsigned long ticks_TSENSOR = 0;
-unsigned long ticks_PGM = 0;
-unsigned long ticks_PGM_Total = 0;
 
 
 
@@ -313,10 +325,6 @@ void setup() {
   pinMode(D1, OUTPUT); // set relay pin mode to output
   digitalWrite(D1, LOW); // turn relay off
 
-  // debug only
-  //Serial.begin(115200);
-  //Serial.println("Starting...");
-
   uint16_t calData[5]; // buffer for touchscreen calibration data
   uint8_t calDataOK = 0; // calibration data reding status
 
@@ -349,7 +357,7 @@ void setup() {
   } else {
     // data not valid so recalibrate
     gfx->setCursor(20, 0);
-    gfx->setTextFont(2);
+    gfx->setTextFont(1);
     gfx->setTextSize(1);
     gfx->setTextColor(TFT_WHITE, TFT_BLACK);
 
@@ -434,6 +442,36 @@ void setup() {
  // create main window - all details of setting up elements are in CWindow class ctor
  wnd = new CWindow(gfx);
  wnd->Invalidate();
+
+ // initiate connection and start server
+ WiFi.mode(WIFI_STA);
+ WiFi.begin(AP_SSID, AP_PWD);
+
+ for(int i=0; i < 40; i++){
+  if (WiFi.status() == WL_CONNECTED) break;
+  gfx->setCursor(20, 0);
+  gfx->setTextFont(1);
+  gfx->setTextSize(1);
+  gfx->setTextColor(TFT_WHITE, TFT_BLACK);
+  gfx->println("Connecting to WiFi...");
+  
+  gfx->setCursor(20, 30);
+  gfx->println(i);
+  delay(500);
+ }
+
+ WebServer.on("/", [](AsyncWebServerRequest *request) { request->send(200, "text/plain", "Hello async from controller"); });
+ WebServer.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request){ request->send(200, "text/plain", "Free heap: " + String(ESP.getFreeHeap())); });
+ WebServer.onNotFound([](AsyncWebServerRequest *request) { request->send(404, "text/plain", "Nothing found :("); });
+ WebServer.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+ 
+ WebEventSource.onConnect([](AsyncEventSourceClient *client){
+    //send event with message "hello!", id current millis and set reconnect delay to 1 second - just from sample
+    client->send("hello!",NULL,millis(),1000);
+  });
+ WebServer.addHandler(&WebEventSource);
+ 
+ WebServer.begin();
 }
 
 
@@ -558,10 +596,17 @@ void loop() {
       }
     }
 
+    // temp - show ip address in the status bar
+    strStatus = "IP address: ";
+    strStatus += WiFi.localIP().toString();
+    
     // update values on the screen
     
     wnd->lblStatus.SetText(strStatus); // update status text at the bottom of the screen
     wnd->lblTempr.SetText(strTempr); // update temperature value
+
+    // handle event listeners - update them with the new temperature value
+    WebEventSource.send(strTempr.c_str(),"tProbe", millis());
 
     // finally save timer value
     ticks_TSENSOR = ticks;

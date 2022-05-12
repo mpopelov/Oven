@@ -1,3 +1,5 @@
 tools/
 libraries/TFT_eSPI/
-libraries/MAX31855/
+Oven/CompilerResults.txt
+Oven/topsecret.h
+Oven/data
