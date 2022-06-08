@@ -11,6 +11,7 @@
 #include "DTButton.h"
 #include "DTLabel.h"
 #include "DTSelect.h"
+#include "DTProgressBar.h"
 #include "DTWindow.h"
 
 // define interface colors
