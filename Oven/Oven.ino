@@ -1,31 +1,40 @@
-/*
- * Oven project - a controller for electrical heat oven
-*/
-#include <SPI.h> // SPI for accessing devices on SPI bus
-#include <TFT_eSPI.h> // Hardware-specific library
-#include <LittleFS.h> // include for file system support
+/**
+ * @file Oven.ino
+ * @author MikeP (mpopelov@gmail.com)
+ * @brief Oven project - a controller for electrical heat oven
+ * @details Implementation of a controller for electrical heat oven.
+ *          Controller is able to execute production programs stored in memory.
+ *          Each program defines a list of steps identifying desired temperatures at the start and end of each step along with step duration.
+ *          Linear temperature change over step duration is assumed.
+ *          Controller can be managed using TFT touchscreen to select/start/stop programs stored in memory.
+ *          Configuring controller parameters and available programs is done via web interface.
+ *          Web interface also allows the same level of control as TFT touchscreen.
+ *          To be able to access web interface of the controller it should join WiFi network.
+ * @version 0.1
+ * @date 2022-06-08
+ * 
+ * @copyright Copyright (c) 2022
+ * 
+ */
 
-#include <ESP8266WiFi.h>
-#include <ESPAsyncTCP.h>
-#include <ESPAsyncWebServer.h>
+#include <SPI.h>                  // SPI for accessing devices on SPI bus
+#include <TFT_eSPI.h>             // included for TFT support
+#include <LittleFS.h>             // included for file system support
 
+#include <ArduinoJson.h>          // included for JSON support
 
-#include <DeskTop.h> // include for simple desktop class library
-#include <TSensor.h> // include for K-type sensor
-#include <PIDControl.h>
-#include <TProgram.h>
+#include <ESP8266WiFi.h>          // included for WiFi support
+#include <ESPAsyncTCP.h>          // included for async TCP communication
+#include <ESPAsyncWebServer.h>    // included for HTTP and WebSocket support
 
-/* guess what ... */
-#include "topsecret.h"
-#ifndef AP_SSID
-#define AP_SSID "your_ap_ssid"
-#endif
-#ifndef AP_PWD
-#define AP_PWD "your_ap_password"
-#endif
+#include <DeskTop.h>              // included for simple desktop class library
+#include <TSensor.h>              // included for K-type temperature sensor support
+#include <PIDControl.h>           // included for PID-control implementation
+#include <TProgram.h>             // included for base classes describing controller programs
 
-
-// fonts to be used
+/**
+ * Fonts to be used for rendering on TFT display
+ */
 #define FSN1 FreeSans9pt7b // for status text and small labels
 #define FSB1 FreeSansBold9pt7b // bold font for small text
 #define FSN2 FreeSans12pt7b // for medium sized text
@@ -33,21 +42,18 @@
 #define FSB3 FreeSansBold18pt7b
 #define FSB4 FreeSansBold24pt7b
 
-// different tolerances for reactions
-#define TS_USER_TOLERANCE   300 // touch screen user action tolerance: holding touchscreen for less than this milliseconds will not trigger additional event to GUI
-#define TSENSOR_INTERVAL    1000 // only measure temperature that often
-
-
-/***********************************************
+/**
  * Global string constants
- ***********************************************/
+ */
 // file names
-static const char FILE_TS_CALIBRATION[] PROGMEM = "/TouchCalData";
+static const char FILE_CONFIGURATION[] PROGMEM = "oven.json";
 static const char FILE_HTTP_INDEX[] PROGMEM = "/index.html";
-// button and label texts
+
+// button text strings
 static const char BTN_START[] PROGMEM         = "Start";
 static const char BTN_STOP[] PROGMEM          = "Stop";
 static const char BTN_PROG[] PROGMEM          = "Prog";
+// label text strings
 static const char LBL_EMPTY[] PROGMEM         = "---";
 static const char LBL_TEMPRMPTY[] PROGMEM     = "----C";
 static const char LBL_TIMEREMPTY[] PROGMEM    = "00:00:00";
@@ -57,6 +63,38 @@ static const char LBL_OF[] PROGMEM            = " of ";
 static const char LBL_STEPTARGET[] PROGMEM    = "Step target: ";
 static const char LBL_STEPTIME[] PROGMEM      = "Step remaining: ";
 static const char LBL_TIMEREMAINING[] PROGMEM = "Program remaining: ";
+
+// JSON elements
+static const char JSON_POLL[] PROGMEM                   = "poll";
+
+static const char JSON_TFT[] PROGMEM                    = "TFT";
+
+static const char JSON_WIFI[] PROGMEM                   = "WiFi";
+static const char JSON_WIFI_SSID[] PROGMEM              = "SSID";
+static const char JSON_WIFI_KEY[] PROGMEM               = "KEY";
+static const char JSON_WIFI_IP[] PROGMEM                = "IP";
+
+static const char JSON_PID[] PROGMEM                    = "PID";
+static const char JSON_PID_KP[] PROGMEM                 = "KP";
+static const char JSON_PID_KI[] PROGMEM                 = "KI";
+static const char JSON_PID_KD[] PROGMEM                 = "KD";
+
+static const char JSON_PROGRAMS[] PROGMEM               = "Programs";
+static const char JSON_PROGRAM_NAME[] PROGMEM           = "Name";
+static const char JSON_PROGRAM_STEPS[] PROGMEM          = "steps";
+static const char JSON_PROGRAM_STEP_TSTART[] PROGMEM    = "tStart";
+static const char JSON_PROGRAM_STEP_TEND[] PROGMEM      = "tEnd";
+static const char JSON_PROGRAM_STEP_DURATION[] PROGMEM  = "duration";
+
+
+
+
+
+// different tolerances for reactions
+#define TS_USER_TOLERANCE   300 // touch screen user action tolerance: holding touchscreen for less than this milliseconds will not trigger additional event to GUI
+#define TSENSOR_INTERVAL    1000 // only measure temperature that often
+
+
 
 
 // K-type temperature sensor instance

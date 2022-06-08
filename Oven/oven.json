@@ -1,9 +1,7 @@
 {
     "TFT" : {
-        "poll" : 300,
-        "tft1" : 500,
-        "tft2" : 700,
-        "tft3" : 900
+        "poll": 300,
+        "TFT" : [500, 700, 900]
     },
     "WiFi" : {
         "SSID" : "YourSSID",
