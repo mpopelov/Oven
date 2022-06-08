@@ -8,7 +8,7 @@
 void DTWindow::AddControl(DTControl* c)
 {
     // only add non-null controls
-    if( c != NULL ){
+    if( c != nullptr ){
         // add control to the start of linked list
         DTCList* l = new DTCList(c, _controls);
         _controls = l;
@@ -21,7 +21,7 @@ bool DTWindow::HandleEvent(uint16_t x, uint16_t y, bool pressed)
     DTCList* l = _controls;
     bool result = false;
 
-    while (l != NULL)
+    while (l != nullptr)
     {
         if(result = l->control->HandleEvent(x,y,pressed)){
             // in case any of our controls handled the event
@@ -55,7 +55,7 @@ void DTWindow::Render(bool parentCleared)
 
     // trigger rendering of child components - they might need to be redrawn even if this one is not in invalidated state
     DTCList* l = _controls;
-    while (l != NULL)
+    while (l != nullptr)
     {
         l->control->Render(parentCleared); // parentCleared is adjusted in the code above to reflect clearing of the area either by parent or this component
         l = l->next;
@@ -68,7 +68,7 @@ void DTWindow::Invalidate()
 
     // go hit child controls to render themselves as we are about to redraw the entire window
     DTCList* l = _controls;
-    while (l != NULL)
+    while (l != nullptr)
     {
         l->control->Invalidate(); 
         l = l->next;

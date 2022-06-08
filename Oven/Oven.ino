@@ -17,6 +17,7 @@
  * 
  */
 
+#include <Arduino.h>
 #include <SPI.h>                  // SPI for accessing devices on SPI bus
 #include <TFT_eSPI.h>             // included for TFT support
 #include <LittleFS.h>             // included for file system support
@@ -87,12 +88,37 @@ static const char JSON_PROGRAM_STEP_TEND[] PROGMEM      = "tEnd";
 static const char JSON_PROGRAM_STEP_DURATION[] PROGMEM  = "duration";
 
 
+/**
+ * @brief Global configuration
+ * 
+ */
+struct {
 
+  struct {
+    unsigned long poll = 300;                // poll touch screen that often (in ms)
+    union {
+      uint32_t tft[3] = {0, 0, 0};
+      uint8_t  raw[12];
+    } data;
+  } TFT;
 
+  struct {
+    String SSID;
+    String KEY;
+    String IP;
+  } WiFi;
 
-// different tolerances for reactions
-#define TS_USER_TOLERANCE   300 // touch screen user action tolerance: holding touchscreen for less than this milliseconds will not trigger additional event to GUI
-#define TSENSOR_INTERVAL    1000 // only measure temperature that often
+  struct {
+    unsigned long poll = 1000;               // only measure temperature that often (in ms)
+    double KP = NAN;
+    double KI = NAN;
+    double KD = NAN;
+  } PID;
+
+  int nPrograms = 0;
+  TProgram** Programs = nullptr;
+
+} Configuration;
 
 
 
@@ -117,12 +143,13 @@ unsigned long ticks_PGM_Total = 0;
 
 
 // test program placeholder
-TProgram** PGMList = NULL;
-TProgram* ActiveProgram = NULL; // current active program
-PIDControl* PID = NULL; // pid control instance
+TProgram* ActiveProgram = nullptr; // current active program
+PIDControl* PID = nullptr; // pid control instance
 double U = 0; // current controlling signal value
 
-int PGMNo = 4;
+
+
+
 
 volatile bool IsPgmRunning = false; // gloabl flag for signalling controller program state
 volatile bool PgmHasStarted = false; // check if begin() was properly called
@@ -132,9 +159,9 @@ volatile bool PgmHasStarted = false; // check if begin() was properly called
 
 
 
-/***********************************************
+/**
  * Classes for GUI windows used in sketch
- ***********************************************/
+ */
 
 // a class showing window that allows selecting programs from memory
 class SWindow : public DTWindow {
@@ -153,7 +180,7 @@ class SWindow : public DTWindow {
     AddControl(&btnCancel);
     AddControl(&btnDown);
     AddControl(&selProgs);
-    if(PGMList != NULL) for(int idx=0; idx < PGMNo; idx++) selProgs.AddItem(idx, PGMList[idx]->GetName());
+    if(Configuration.Programs != nullptr) for(int idx=0; idx < Configuration.nPrograms; idx++) selProgs.AddItem(idx, Configuration.Programs[idx]->GetName());
   }
 
   // public callback methods for 2 buttons
@@ -181,7 +208,7 @@ class SWindow : public DTWindow {
 class CWindow : public DTWindow {
   public:
   CWindow(TFT_eSPI* gfx) :
-  _RelayOn(false), _SelectOn(false), SWnd(NULL),
+  _RelayOn(false), _SelectOn(false), SWnd(nullptr),
   DTWindow(gfx, 0, 0, 320, 240, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND),
   // initialize child elements
               btnProg( gfx, 250,   0,  70,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSB2, BTN_PROG, DTDelegate::create<CWindow,&CWindow::OnButton_PGM>(this)),
@@ -235,7 +262,7 @@ class CWindow : public DTWindow {
       // update active program with the one selected only if controller is not in running mode
       if(!IsPgmRunning){
        uint16_t _pgmIdx = SWnd->selProgs.GetSelected();
-       if(_pgmIdx < PGMNo) ActiveProgram = PGMList[_pgmIdx];
+       if(_pgmIdx < Configuration.nPrograms) ActiveProgram = Configuration.Programs[_pgmIdx];
        // set selected program details
        lblProgramName.SetText(ActiveProgram->GetName());
        lblStepTotal.SetText(String(ActiveProgram->GetStepsTotal()));
@@ -266,14 +293,14 @@ class CWindow : public DTWindow {
   // overload HandleEvent function
   virtual bool HandleEvent(uint16_t x, uint16_t y, bool pressed)
   {
-    if(_SelectOn && SWnd != NULL){
+    if(_SelectOn && SWnd != nullptr){
       //pass event to select window
       bool res = SWnd->HandleEvent(x, y, pressed);
       // select might have processed the event and could have signalled we shall destroy it
       if(!_SelectOn){
         // flag was re-set meaning we shall destroy child window
         delete SWnd;
-        SWnd = NULL;
+        SWnd = nullptr;
         Visible(true);
         Invalidate();
       }
@@ -288,7 +315,7 @@ class CWindow : public DTWindow {
   virtual void Render(bool parentCleared)
   {
     // properly route rendering call
-    if(_SelectOn && SWnd != NULL){
+    if(_SelectOn && SWnd != nullptr){
       SWnd->Render(parentCleared);
     }else{
       DTWindow::Render(parentCleared);
@@ -308,7 +335,7 @@ class CWindow : public DTWindow {
       btnStart.SetBtnColor(DT_C_GREEN);
     }else{
       // program is not running - start active program and let PID controller decide on relay state.
-      if(ActiveProgram != NULL){
+      if(ActiveProgram != nullptr){
         // only start things if there is an active program selected
         // so far just raise the flag and signal program handling code to du all necessary steps to update screen
         // and calculate setpoint and control action
@@ -351,7 +378,7 @@ class CWindow : public DTWindow {
   SWindow* SWnd;
 };
 
-CWindow* wnd = NULL;
+CWindow* wnd = nullptr;
 
 
 //
@@ -362,6 +389,14 @@ void setup() {
   // set relay pin
   pinMode(D1, OUTPUT); // set relay pin mode to output
   digitalWrite(D1, LOW); // turn relay off
+
+  // initialize screen
+  gfx->init();
+  gfx->setRotation(1);  
+  gfx->fillScreen(TFT_BLACK);
+
+  // show splash screen with progress bas and status indicator
+
 
   uint16_t calData[5]; // buffer for touchscreen calibration data
   uint8_t calDataOK = 0; // calibration data reding status
@@ -374,20 +409,17 @@ void setup() {
     fileSystem->begin();
   }
 
-  // check if calibration file exists and size is correct
-  if (fileSystem->exists(FPSTR(FILE_TS_CALIBRATION))) {
-      File f = fileSystem->open(FPSTR(FILE_TS_CALIBRATION), "r");
-      if (f) {
-        if (f.readBytes((char *)calData, 10) == 10)
-          calDataOK = 1;
-        f.close();
+  // check if configuration file exists
+  // if it does - read JSON and fill in configuration structure
+  if (fileSystem->exists(FPSTR(FILE_CONFIGURATION))) {
+    File f = fileSystem->open(FPSTR(FILE_CONFIGURATION), "r");
+    if (f) {
+      //if (f.readBytes((char *)calData, 10) == 10) calDataOK = 1;
+      f.close();
     }
   }
 
-  // initialize screen
-  gfx->init();
-  gfx->setRotation(1);  
-  gfx->fillScreen(TFT_BLACK);
+  
 
   if (calDataOK) {
     // calibration data valid
@@ -410,7 +442,7 @@ void setup() {
     gfx->println("Calibration complete!");
 
     // store data
-    File f = fileSystem->open(FPSTR(FILE_TS_CALIBRATION), "w");
+    File f = fileSystem->open(FPSTR(FILE_CONFIGURATION), "w");
     if (f) {
       f.write((const unsigned char *)calData, 10);
       f.close();
@@ -434,14 +466,14 @@ void setup() {
  * 
  */
 
- PGMList = new TProgram*[PGMNo];
+ Configuration.Programs = new TProgram*[Configuration.nPrograms];
 
  TProgram* p = new TProgram(3, "Testing PID");
  p->AddStep(28 , 100, 1*60000); // step 1
  p->AddStep(100, 100, 1*60000); // step 2
  p->AddStep(100, 40, 1*60000); // step 3
  p->Reset();
- PGMList[0] = p;
+ Configuration.Programs[0] = p;
 
  p = new TProgram(8, "Utility Red");
  p->AddStep(28 , 100, 35*60000); // step 1
@@ -453,7 +485,7 @@ void setup() {
  p->AddStep(595, 950, (2*60+30)*60000); // step 7
  p->AddStep(950, 950, 15*60000); // step 8
  p->Reset();
- PGMList[1] = p;
+ Configuration.Programs[1] = p;
 
  p = new TProgram(8, "Utility White");
  p->AddStep(28 , 100, 35*60000); // step 1
@@ -465,7 +497,7 @@ void setup() {
  p->AddStep(595, 1000, (2*60+30)*60000); // step 7
  p->AddStep(1000, 1000, 15*60000); // step 8
  p->Reset();
- PGMList[2] = p;
+ Configuration.Programs[2] = p;
 
  p = new TProgram(6, "Glazing");
  p->AddStep(28  , 100, 35*60000); // step 1
@@ -475,7 +507,7 @@ void setup() {
  p->AddStep(200, 1250, (3*60)*60000); // step 5
  p->AddStep(1250, 1250, 40*60000); // step 6
  p->Reset();
- PGMList[3] = p;
+ Configuration.Programs[3] = p;
 
  // create main window - all details of setting up elements are in CWindow class ctor
  wnd = new CWindow(gfx);
@@ -483,7 +515,7 @@ void setup() {
 
  // initiate connection and start server
  WiFi.mode(WIFI_STA);
- WiFi.begin(AP_SSID, AP_PWD);
+ WiFi.begin(Configuration.WiFi.SSID, Configuration.WiFi.KEY);
 
  for(int i=0; i < 40; i++){
   if (WiFi.status() == WL_CONNECTED) break;
@@ -499,14 +531,15 @@ void setup() {
  }
 
  WebServer.on("/", [](AsyncWebServerRequest *request) { request->send(200, "text/plain", "Hello async from controller"); });
+ WebServer.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
  WebServer.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request){ request->send(200, "text/plain", "Free heap: " + String(ESP.getFreeHeap())); });
  WebServer.onNotFound([](AsyncWebServerRequest *request) { request->send(404, "text/plain", "Nothing found :("); });
- WebServer.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
  
  WebEventSource.onConnect([](AsyncEventSourceClient *client){
     //send event with message "hello!", id current millis and set reconnect delay to 1 second - just from sample
-    client->send("hello!",NULL,millis(),1000);
+    client->send("hello!",nullptr,millis(),1000);
   });
+
  WebServer.addHandler(&WebEventSource);
  
  WebServer.begin();
@@ -533,7 +566,7 @@ void loop() {
   char buff[BUFF_LEN];
 
   // allow handling touch screen events early to allow emergency stop as early as possible
-  if ( (ticks - ticks_TS >= TS_USER_TOLERANCE) && gfx->getTouch(&x, &y) )
+  if ( (ticks - ticks_TS >= Configuration.TFT.poll) && gfx->getTouch(&x, &y) )
   {
     wnd->HandleEvent(x,y, true);
     // finally save timer value
@@ -542,7 +575,7 @@ void loop() {
 
   // now the main functionality
   // measure temperature / apply control if needed / update screen elements
-  if ( ticks - ticks_TSENSOR >= TSENSOR_INTERVAL )
+  if ( ticks - ticks_TSENSOR >= Configuration.PID.poll )
   {
     // read temperature and update values on screen
     uint8_t faultCode         = TS.readChip();    // read chip updated value and save error for easy access
@@ -552,13 +585,13 @@ void loop() {
 
     if (faultCode)                                        // Display error code if present
     {
-      if (faultCode & B001) {
+      if (faultCode & 0b001) {
         wnd->lblStatus.SetText("Fault: Wire not connected");
       }
-      if (faultCode & B010) {
+      if (faultCode & 0b010) {
         wnd->lblStatus.SetText("Fault: Short-circuited to Ground (negative)");
       }
-      if (faultCode & B100) {
+      if (faultCode & 0b100) {
         wnd->lblStatus.SetText("Fault: Short-circuited to VCC (positive)");
       }
     }
@@ -569,7 +602,7 @@ void loop() {
     }
 
     // check if program has to be run (and only if active program is properly set)
-    if(IsPgmRunning && ActiveProgram != NULL){
+    if(IsPgmRunning && ActiveProgram != nullptr){
       // check if this is the first time program starts
       if(PgmHasStarted){
         // do the normal routine
@@ -577,7 +610,7 @@ void loop() {
 
       }else{
         // this is the initial step in the program
-        PID = new PIDControl( 1, 1, 1, TSENSOR_INTERVAL);
+        PID = new PIDControl( 1, 1, 1, Configuration.PID.poll);
         SetPointTemperature = ActiveProgram->Begin();
         wnd->lblTemprTarget.Visible(true);
         PgmHasStarted = true;
@@ -616,11 +649,11 @@ void loop() {
       if(PgmHasStarted){
         // stop activity on heater if any and reset program
         digitalWrite(D1, LOW); // turn relay switch off
-        if(ActiveProgram != NULL) ActiveProgram->Reset();
+        if(ActiveProgram != nullptr) ActiveProgram->Reset();
         // reset PID control
-        if(PID != NULL){
+        if(PID != nullptr){
           delete PID;
-          PID = NULL;
+          PID = nullptr;
         }
         U = 0.0; // reset controlling signal
         PgmHasStarted = false;

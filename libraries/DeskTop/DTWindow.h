@@ -40,7 +40,7 @@ class DTWindow : public DTControl
                uint16_t h,
                uint32_t flags,
                uint16_t bkgc) :
-     DTControl(gfx, x, y, w, h, flags), _bkg_color(bkgc), _controls(NULL) {}
+     DTControl(gfx, x, y, w, h, flags), _bkg_color(bkgc), _controls(nullptr) {}
 
      // add controls to window plane
      virtual void AddControl(DTControl* c);
@@ -54,7 +54,7 @@ class DTWindow : public DTControl
      // DTor
      virtual ~DTWindow()
      {
-        while (_controls != NULL)
+        while (_controls != nullptr)
         {
             DTCList* l = _controls->next;
             delete _controls;

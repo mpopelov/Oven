@@ -53,7 +53,7 @@ class DTSelect : public DTControl
                const GFXfont* f)
       : DTControl(gfx, x, y, w, h, flags),
       _bkgc(bkgc), _i_txt_cn(item_txt_cn), _i_txt_cs(item_txt_cs), _i_bkg_cn(item_bkg_cn), _i_bkg_cs(item_bkg_cs),
-      _items_first(NULL), _items_last(NULL), _items_current(NULL), _lbls(NULL)
+      _items_first(nullptr), _items_last(nullptr), _items_current(nullptr), _lbls(nullptr)
       {
           // set font and its size in order to correctly identify the height of the item label
           gfx->setFreeFont(f);
@@ -87,10 +87,10 @@ class DTSelect : public DTControl
       {
           // deallocate memory used for labels
           for(int i=0; i<_lbl_max; i++) delete _lbls[i]; // delete all labels
-          if(_lbls != NULL) delete _lbls; // delete array itself
+          if(_lbls != nullptr) delete _lbls; // delete array itself
 
           // deallocate memory used by items
-          while(_items_first != NULL){
+          while(_items_first != nullptr){
               DTSelectItem* itm = _items_first->next;
               delete _items_first;
               _items_first = itm;

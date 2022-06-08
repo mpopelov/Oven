@@ -24,7 +24,7 @@ class PIDControl
       * @param Kp Proportional coeffitient
       * @param Ki Integral coeffitient
       * @param Kd Derivative coeffitient
-      * @param dt Expected discrete time step (usually seconds)
+      * @param dt Expected discrete time step (in ms)
       */
      PIDControl(double Kp, double Ki, double Kd, double dt)
      : _d0(0.0), _d1(0.0), _fd0(0.0), _fd1(0.0)

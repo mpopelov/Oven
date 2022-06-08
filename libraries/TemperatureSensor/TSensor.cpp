@@ -95,7 +95,7 @@ double TSensor::getProbeLinearized()
     double correctedTemp = 0;
     double totalVoltage = 0;
 
-    const double* coeff_array = NULL; // pointer to appropriate static array of coeffitients
+    const double* coeff_array = nullptr; // pointer to appropriate static array of coeffitients
     double powT = 1.0; // variable to speed up calculation of pow(x,i) by accumulating value in the loop
 
     // Check to make sure thermocouple temperature is meaningful.
@@ -107,7 +107,7 @@ double TSensor::getProbeLinearized()
 
     // Step 3. Calculate the cold junction equivalent thermocouple voltage.
     // Coefficients and equations available from http://srdata.nist.gov/its90/download/type_k.tab
-    const double* c = NULL;
+    const double* c = nullptr;
     if(valAmbient >= 0){
         coeff_array = c_positive;
     } else{

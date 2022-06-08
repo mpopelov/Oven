@@ -22,11 +22,11 @@ void DTSelect::AddItem(uint16_t idx, const String& txt)
     DTSelectItem* itm = new DTSelectItem();
     itm->text = txt;
     itm->idx = idx;
-    itm->next = NULL;
+    itm->next = nullptr;
     itm->prev = _items_last;
 
-    if(_items_first == NULL){
-        _items_first = itm; // case first item is NULL - we are adding the very first item
+    if(_items_first == nullptr){
+        _items_first = itm; // case first item is nullptr - we are adding the very first item
         _items_current = itm; // make the very first item to appear as current
     }else{
         // we simply have to add item to the end of the list
@@ -42,7 +42,7 @@ void DTSelect::AddItem(uint16_t idx, const String& txt)
  */
 uint16_t DTSelect::GetSelected()
 {
-    if(_items_current == NULL) return 0xFFFF; // indicate we have no real value
+    if(_items_current == nullptr) return 0xFFFF; // indicate we have no real value
     return _items_current->idx;
 }
 
@@ -53,10 +53,10 @@ uint16_t DTSelect::GetSelected()
 void DTSelect::MoveNext()
 {
     // makes sence to move only in case of available list items
-    if(_items_current == NULL) return;
+    if(_items_current == nullptr) return;
 
     // only move if there is next element in the list
-    if(_items_current->next != NULL){
+    if(_items_current->next != nullptr){
         // move the pointer
         _items_current = _items_current->next;
         // now check if selected label was displayed at the very bottom of the element
@@ -64,7 +64,7 @@ void DTSelect::MoveNext()
             // we are at the end of the visible list - the entire contents of displayed area needs to be changed - including text
             // 1) starting with the last visible label and all way top
             DTSelectItem* itm = _items_current;
-            for(int i=_lbl_cur_idx; i>=0 && itm != NULL; i--){
+            for(int i=_lbl_cur_idx; i>=0 && itm != nullptr; i--){
                 _lbls[i]->SetText(itm->text);
                 _lbls[i]->SetBackColor(i==_lbl_cur_idx ? _i_bkg_cs : _i_bkg_cn);
                 _lbls[i]->SetTextColor(i==_lbl_cur_idx ? _i_txt_cs : _i_txt_cn);
@@ -95,10 +95,10 @@ void DTSelect::MoveNext()
 void DTSelect::MovePrev()
 {
     // makes sence to move only in case of available list items
-    if(_items_current == NULL) return;
+    if(_items_current == nullptr) return;
 
     // only move if there is previous element in the list
-    if(_items_current->prev != NULL){
+    if(_items_current->prev != nullptr){
         // move the pointer
         _items_current = _items_current->prev;
         // now check if selected label was displayed at the very top of the element
@@ -106,7 +106,7 @@ void DTSelect::MovePrev()
             // we are at the top of the visible list - the entire contents of displayed area needs to be changed - including text
             // 1) starting with the first visible label and all way bottom
             DTSelectItem* itm = _items_current;
-            for(int i=0; i<_lbl_max && itm != NULL; i++){
+            for(int i=0; i<_lbl_max && itm != nullptr; i++){
                 _lbls[i]->SetText(itm->text);
                 _lbls[i]->SetBackColor(i==_lbl_cur_idx ? _i_bkg_cs : _i_bkg_cn);
                 _lbls[i]->SetTextColor(i==_lbl_cur_idx ? _i_txt_cs : _i_txt_cn);
@@ -141,13 +141,13 @@ void DTSelect::Render(bool parentCleared)
     if( !(_flags & DTCONTROL_FLAGS_VISIBLE) ) return;
 
     // check that rendering is at all possible
-    if(_lbl_max == 0 || _items_current == NULL) return; // if not - return with no impact
+    if(_lbl_max == 0 || _items_current == nullptr) return; // if not - return with no impact
 
     // verify the first attempt to render - labels should be populated with data respectively
     if(_flags & DTSELECT_FLAGS_INITIALRENDER){
         // populate labels with data starting with current item - normally should be the same as the very first item on the list
         DTSelectItem* itm = _items_current;
-        for(int i=0; i<_lbl_max && itm != NULL; i++, itm = itm->next){
+        for(int i=0; i<_lbl_max && itm != nullptr; i++, itm = itm->next){
             _lbls[i]->SetText(itm->text);
 
             // set text and background color

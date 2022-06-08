@@ -34,7 +34,7 @@ class DTButton : public DTControl
      * @param txtc label text color
      * @param f fot to use for label text
      * @param txt text string to show as label
-     * @param callback pointer to callback function or NULL if there is none
+     * @param callback pointer to callback function or nullptr if there is none
      */
      DTButton(TFT_eSPI* gfx,
                uint16_t x,
