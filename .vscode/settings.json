@@ -3,6 +3,7 @@
         "bit": "cpp",
         "*.tcc": "cpp",
         "cmath": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "*.ino": "cpp"
     }
 }
