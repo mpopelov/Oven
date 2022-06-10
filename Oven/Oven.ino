@@ -46,9 +46,11 @@
 /**
  * Global string constants
  */
-// file names
+// file names and paths (also for web server)
 static const char FILE_CONFIGURATION[] PROGMEM = "oven.json";
-static const char FILE_HTTP_INDEX[] PROGMEM = "/index.html";
+static const char FILE_WEB_INDEX[] PROGMEM     = "/index.html";
+static const char FILE_WEB_HEAP[] PROGMEM      = "/heap";
+static const char FILE_WEB_WS[] PROGMEM        = "/ev";
 
 // button text strings
 static const char BTN_START[] PROGMEM         = "Start";
@@ -150,13 +152,12 @@ struct {
  */
 TFT_eSPI          gi_Tft = TFT_eSPI();            // TFT display driver
 LittleFSConfig    gi_FSConfig = LittleFSConfig(); // file system configuration
-//FS*               gFS = &LittleFS;              // file system instance
 
 TSensor           gi_TS(D2, false);               // MAX31855 K-type temperature sensor instance
 PIDControl*       gp_PID = nullptr;               // pid control instance
 
-AsyncWebServer    gi_WebServer(80);               // a web server instance
-AsyncEventSource  gi_WebEventSource(F("/ev"));       // an event source
+AsyncWebServer    gi_WebServer(80);                       // a web server instance
+AsyncEventSource  gi_WebEventSource(FPSTR(FILE_WEB_WS));  // an event source
 
 
 
@@ -641,6 +642,8 @@ void setup() {
     gfx->setTextColor(TFT_GREEN, TFT_BLACK);
     gfx->println("Calibration complete!");
 
+    // 0.4 Save configuration if necessary
+
     // store data
     File f = fileSystem->open(FPSTR(FILE_CONFIGURATION), "w");
     if (f) {
@@ -651,6 +654,7 @@ void setup() {
 
   wSS.pbrProgress.SetProgress(70);
 
+  // 0.5 Attempt to connect to WiFi (if can not - try to launch self in AP mode ?)
  // initiate connection and start server
  WiFi.mode(WIFI_STA);
  WiFi.begin(Configuration.WiFi.SSID, Configuration.WiFi.KEY);
@@ -668,9 +672,10 @@ void setup() {
   delay(500);
  }
 
+  // 0.6 Start web server
  WebServer.on("/", [](AsyncWebServerRequest *request) { request->send(200, "text/plain", "Hello async from controller"); });
  WebServer.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
- WebServer.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request){ request->send(200, "text/plain", "Free heap: " + String(ESP.getFreeHeap())); });
+ WebServer.on(FPSTR(FILE_WEB_HEAP), HTTP_GET, [](AsyncWebServerRequest *request){ request->send(200, "text/plain", "Free heap: " + String(ESP.getFreeHeap())); });
  WebServer.onNotFound([](AsyncWebServerRequest *request) { request->send(404, "text/plain", "Nothing found :("); });
  
  WebEventSource.onConnect([](AsyncEventSourceClient *client){
@@ -682,7 +687,7 @@ void setup() {
  
  WebServer.begin();
 
- // no more initialization screen updates - invalidate and render main window
+ // 0.7 no more initialization screen updates - invalidate and render main window
  wnd.Invalidate();
  wnd.Render(false);
 }

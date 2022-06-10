@@ -11,11 +11,15 @@
             "defines": [
                 "_DEBUG",
                 "UNICODE",
-                "_UNICODE"
+                "_UNICODE",
+                "ARDUINO",
+                "ESP8266",
+                "D1",
+                "D2"
             ],
             "cStandard": "c17",
             "cppStandard": "c++17",
-            "intelliSenseMode": "linux-clang-x86"
+            "intelliSenseMode": "windows-clang-x86"
         }
     ],
     "version": 4
