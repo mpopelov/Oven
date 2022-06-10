@@ -101,7 +101,7 @@ struct {
     unsigned long poll = 300;                // poll touch screen that often (in ms)
     union {
       uint32_t tft[3] = {0, 0, 0};
-      uint8_t  raw[12];
+      uint16_t raw[6];
     } data;
   } TFT;
 
@@ -622,39 +622,37 @@ void setup() {
   wSS.pbrProgress.SetProgress(50);
 
   // 03. Calibrate touch screen if necessary
+  calDataOK = ( Configuration.TFT.data.tft[0] != 0 && Configuration.TFT.data.tft[1] != 0 && Configuration.TFT.data.tft[2] != 0);
   if (calDataOK) {
     // calibration data valid
-    gfx->setTouch(calData);
+    gi_Tft.setTouch(Configuration.TFT.data.raw);
   } else {
     // data not valid so recalibrate
-    gfx->setCursor(20, 0);
-    gfx->setTextFont(1);
-    gfx->setTextSize(1);
-    gfx->setTextColor(TFT_WHITE, TFT_BLACK);
 
-    gfx->println("Touch corners as indicated");
+    // set text color to red ?
+    wSS.lblStatus.SetText(F("Touch corners as indicated"));
+    wSS.Render(false);
 
-    gfx->setTextFont(1);
-    gfx->println();
+    gi_Tft.calibrateTouch(Configuration.TFT.data.raw, TFT_MAGENTA, TFT_BLACK, 15);
 
-    gfx->calibrateTouch(calData, TFT_MAGENTA, TFT_BLACK, 15);
+    // set text color to green
+    //gfx->setTextColor(TFT_GREEN, TFT_BLACK);
+    wSS.lblStatus.SetText(F("Calibration complete!"));
+    wSS.Render(false);
 
-    gfx->setTextColor(TFT_GREEN, TFT_BLACK);
-    gfx->println("Calibration complete!");
-
-    // 0.4 Save configuration if necessary
+    // ??? Save configuration if necessary ?
 
     // store data
-    File f = fileSystem->open(FPSTR(FILE_CONFIGURATION), "w");
+    /*File f = fileSystem->open(FPSTR(FILE_CONFIGURATION), "w");
     if (f) {
       f.write((const unsigned char *)calData, 10);
       f.close();
-    }
+    }*/
   }
 
   wSS.pbrProgress.SetProgress(70);
 
-  // 0.5 Attempt to connect to WiFi (if can not - try to launch self in AP mode ?)
+  // 0.4 Attempt to connect to WiFi (if can not - try to launch self in AP mode ?)
  // initiate connection and start server
  WiFi.mode(WIFI_STA);
  WiFi.begin(Configuration.WiFi.SSID, Configuration.WiFi.KEY);
@@ -672,7 +670,7 @@ void setup() {
   delay(500);
  }
 
-  // 0.6 Start web server
+  // 0.5 Start web server
  WebServer.on("/", [](AsyncWebServerRequest *request) { request->send(200, "text/plain", "Hello async from controller"); });
  WebServer.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
  WebServer.on(FPSTR(FILE_WEB_HEAP), HTTP_GET, [](AsyncWebServerRequest *request){ request->send(200, "text/plain", "Free heap: " + String(ESP.getFreeHeap())); });
@@ -687,7 +685,7 @@ void setup() {
  
  WebServer.begin();
 
- // 0.7 no more initialization screen updates - invalidate and render main window
+ // 0.6 no more initialization screen updates - invalidate and render main window
  wnd.Invalidate();
  wnd.Render(false);
 }
