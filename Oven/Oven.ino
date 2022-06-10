@@ -48,9 +48,11 @@
  */
 // file names and paths (also for web server)
 static const char FILE_CONFIGURATION[] PROGMEM = "oven.json";
-static const char FILE_WEB_INDEX[] PROGMEM     = "/index.html";
-static const char FILE_WEB_HEAP[] PROGMEM      = "/heap";
-static const char FILE_WEB_WS[] PROGMEM        = "/ev";
+static const char FILE_WEB_ROOT[]              = "/";
+static const char FILE_WEB_INDEX[]             = "index.html";
+static const char FILE_WEB_HEAP[]              = "/heap";
+static const char FILE_WEB_WS[]                = "/ev";
+static const char FILE_WEB_CT_TXT[] PROGMEM    = "text/plain";
 
 // button text strings
 static const char BTN_START[] PROGMEM         = "Start";
@@ -69,26 +71,26 @@ static const char LBL_TIMEREMAINING[] PROGMEM = "Program remaining: ";
 static const char LBL_DEGC[] PROGMEM = " C";
 
 // JSON elements
-static const char JSON_POLL[] PROGMEM                   = "poll";
+static const char JSCONF_POLL[] PROGMEM                   = "poll";
 
-static const char JSON_TFT[] PROGMEM                    = "TFT";
+static const char JSCONF_TFT[] PROGMEM                    = "TFT";
 
-static const char JSON_WIFI[] PROGMEM                   = "WiFi";
-static const char JSON_WIFI_SSID[] PROGMEM              = "SSID";
-static const char JSON_WIFI_KEY[] PROGMEM               = "KEY";
-static const char JSON_WIFI_IP[] PROGMEM                = "IP";
+static const char JSCONF_WIFI[] PROGMEM                   = "WiFi";
+static const char JSCONF_WIFI_SSID[] PROGMEM              = "SSID";
+static const char JSCONF_WIFI_KEY[] PROGMEM               = "KEY";
+static const char JSCONF_WIFI_IP[] PROGMEM                = "IP";
 
-static const char JSON_PID[] PROGMEM                    = "PID";
-static const char JSON_PID_KP[] PROGMEM                 = "KP";
-static const char JSON_PID_KI[] PROGMEM                 = "KI";
-static const char JSON_PID_KD[] PROGMEM                 = "KD";
+static const char JSCONF_PID[] PROGMEM                    = "PID";
+static const char JSCONF_PID_KP[] PROGMEM                 = "KP";
+static const char JSCONF_PID_KI[] PROGMEM                 = "KI";
+static const char JSCONF_PID_KD[] PROGMEM                 = "KD";
 
-static const char JSON_PROGRAMS[] PROGMEM               = "Programs";
-static const char JSON_PROGRAM_NAME[] PROGMEM           = "Name";
-static const char JSON_PROGRAM_STEPS[] PROGMEM          = "steps";
-static const char JSON_PROGRAM_STEP_TSTART[] PROGMEM    = "tStart";
-static const char JSON_PROGRAM_STEP_TEND[] PROGMEM      = "tEnd";
-static const char JSON_PROGRAM_STEP_DURATION[] PROGMEM  = "duration";
+static const char JSCONF_PROGRAMS[] PROGMEM               = "Programs";
+static const char JSCONF_PROGRAM_NAME[] PROGMEM           = "Name";
+static const char JSCONF_PROGRAM_STEPS[] PROGMEM          = "steps";
+static const char JSCONF_PROGRAM_STEP_TSTART[] PROGMEM    = "tStart";
+static const char JSCONF_PROGRAM_STEP_TEND[] PROGMEM      = "tEnd";
+static const char JSCONF_PROGRAM_STEP_DURATION[] PROGMEM  = "duration";
 
 
 /**
@@ -426,7 +428,7 @@ void setup() {
   // initialize screen
   gi_Tft.init();
   gi_Tft.setRotation(1);  
-  gi_Tft.fillScreen(TFT_BLACK);
+  gi_Tft.fillScreen(DT_C_BACKGROUND);
 
   // prepare and show splash screen
   wSS.lblStatus.SetText(F("Starting controller..."));
@@ -469,10 +471,10 @@ void setup() {
       if(!err){
 
         // a. read TFT parameters
-        if( JsonObject obj = JDoc[FPSTR(JSON_TFT)] ){
+        if( JsonObject obj = JDoc[FPSTR(JSCONF_TFT)] ){
           // TFT section is present in the document
-          Configuration.TFT.poll = obj[FPSTR(JSON_POLL)] | 300;
-          if( JsonArray arr = obj[FPSTR(JSON_TFT)] ){
+          Configuration.TFT.poll = obj[FPSTR(JSCONF_POLL)] | 300;
+          if( JsonArray arr = obj[FPSTR(JSCONF_TFT)] ){
             if( arr.size() == 3 ){
               // try parse data from JSON config
               Configuration.TFT.data.tft[0] = arr[0] | 0;
@@ -484,23 +486,23 @@ void setup() {
         }
         
         // b. read WiFi parameters
-        if( JsonObject obj = JDoc[FPSTR(JSON_WIFI)] ){
+        if( JsonObject obj = JDoc[FPSTR(JSCONF_WIFI)] ){
           // WiFi section is present in the document
-          Configuration.WiFi.SSID = obj[FPSTR(JSON_WIFI_SSID)] | String();
-          Configuration.WiFi.KEY = obj[FPSTR(JSON_WIFI_KEY)] | String();
+          Configuration.WiFi.SSID = obj[FPSTR(JSCONF_WIFI_SSID)] | String();
+          Configuration.WiFi.KEY = obj[FPSTR(JSCONF_WIFI_KEY)] | String();
         }
 
         // c. read PID parameters
-        if( JsonObject obj = JDoc[FPSTR(JSON_PID)] ){
+        if( JsonObject obj = JDoc[FPSTR(JSCONF_PID)] ){
           // PID section is present in the document
-          Configuration.PID.poll = obj[FPSTR(JSON_POLL)] | 1000;
-          Configuration.PID.KP = obj[FPSTR(JSON_PID_KP)] | 1.0;
-          Configuration.PID.KI = obj[FPSTR(JSON_PID_KI)] | 1.0;
-          Configuration.PID.KD = obj[FPSTR(JSON_PID_KD)] | 1.0;
+          Configuration.PID.poll = obj[FPSTR(JSCONF_POLL)] | 1000;
+          Configuration.PID.KP = obj[FPSTR(JSCONF_PID_KP)] | 1.0;
+          Configuration.PID.KI = obj[FPSTR(JSCONF_PID_KI)] | 1.0;
+          Configuration.PID.KD = obj[FPSTR(JSCONF_PID_KD)] | 1.0;
         }
 
         // d. read programs
-        if( JsonArray parr = JDoc[FPSTR(JSON_PROGRAMS)] ){
+        if( JsonArray parr = JDoc[FPSTR(JSCONF_PROGRAMS)] ){
           // Programs section is present in the document
           Configuration.nPrograms = parr.size();
 
@@ -517,20 +519,20 @@ void setup() {
               if( JsonObject pobj = parr[i] ){
 
                 // try reading steps - create program only in case steps are defined
-                if(JsonArray sarr = pobj[FPSTR(JSON_PROGRAM_STEPS)]){
+                if(JsonArray sarr = pobj[FPSTR(JSCONF_PROGRAM_STEPS)]){
                   // steps are defined - create program and try populating it with steps
                   int nSteps = sarr.size();
 
                   // create new program
                   TProgram* p = new TProgram( nSteps,
-                                              pobj[FPSTR(JSON_PROGRAM_NAME)] | "InvalidName" );
+                                              pobj[FPSTR(JSCONF_PROGRAM_NAME)] | F("InvalidName") );
                   // read and add every step
                   for( int j = 0; j < nSteps; j++){
                     if( JsonObject sobj = sarr[j] ){
                       // add step in case it is represented as a valid JSON object
-                      p->AddStep( sobj[FPSTR(JSON_PROGRAM_STEP_TSTART)] | 0.0,
-                                  sobj[FPSTR(JSON_PROGRAM_STEP_TEND)] | 0.0,
-                                  sobj[FPSTR(JSON_PROGRAM_STEP_DURATION)] | 0 );
+                      p->AddStep( sobj[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] | 0.0,
+                                  sobj[FPSTR(JSCONF_PROGRAM_STEP_TEND)] | 0.0,
+                                  sobj[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] | 0 );
                     }
                   }
 
@@ -566,14 +568,14 @@ void setup() {
           Configuration.nPrograms = 4;
           Configuration.Programs = new TProgram*[Configuration.nPrograms];
 
-          TProgram* p = new TProgram(3, "Testing PID");
+          TProgram* p = new TProgram(3, F("Testing PID"));
           p->AddStep(28 , 100, 1*60000); // step 1
           p->AddStep(100, 100, 1*60000); // step 2
           p->AddStep(100, 40, 1*60000); // step 3
           p->Reset();
           Configuration.Programs[0] = p;
 
-          p = new TProgram(8, "Utility Red");
+          p = new TProgram(8, F("Utility Red"));
           p->AddStep(28 , 100, 35*60000); // step 1
           p->AddStep(100, 100, 35*60000); // step 2
           p->AddStep(100, 200, 35*60000); // step 3
@@ -585,7 +587,7 @@ void setup() {
           p->Reset();
           Configuration.Programs[1] = p;
 
-          p = new TProgram(8, "Utility White");
+          p = new TProgram(8, F("Utility White"));
           p->AddStep(28 , 100, 35*60000); // step 1
           p->AddStep(100, 100, 35*60000); // step 2
           p->AddStep(100, 200, 35*60000); // step 3
@@ -597,7 +599,7 @@ void setup() {
           p->Reset();
           Configuration.Programs[2] = p;
 
-          p = new TProgram(6, "Glazing");
+          p = new TProgram(6, F("Glazing"));
           p->AddStep(28  , 100, 35*60000); // step 1
           p->AddStep(100, 100, 35*60000); // step 2
           p->AddStep(100, 200, 35*60000); // step 3
@@ -622,6 +624,9 @@ void setup() {
   wSS.pbrProgress.SetProgress(50);
 
   // 03. Calibrate touch screen if necessary
+  wSS.lblStatus.SetText(F("Setting up touchscreen..."));
+  wSS.Render(false);
+
   calDataOK = ( Configuration.TFT.data.tft[0] != 0 && Configuration.TFT.data.tft[1] != 0 && Configuration.TFT.data.tft[2] != 0);
   if (calDataOK) {
     // calibration data valid
@@ -629,16 +634,19 @@ void setup() {
   } else {
     // data not valid so recalibrate
 
-    // set text color to red ?
-    wSS.lblStatus.SetText(F("Touch corners as indicated"));
+    // set text color to red
+    wSS.lblStatus.SetTextColor(DT_C_RED);
+    wSS.lblStatus.SetText(F("Touch screen corners as indicated"));
     wSS.Render(false);
 
-    gi_Tft.calibrateTouch(Configuration.TFT.data.raw, TFT_MAGENTA, TFT_BLACK, 15);
+    gi_Tft.calibrateTouch(Configuration.TFT.data.raw, DT_C_RED, DT_C_BACKGROUND, 20);
 
     // set text color to green
-    //gfx->setTextColor(TFT_GREEN, TFT_BLACK);
+    wSS.lblStatus.SetTextColor(DT_C_GREEN);
     wSS.lblStatus.SetText(F("Calibration complete!"));
     wSS.Render(false);
+    // reset color to normal
+    wSS.lblStatus.SetTextColor(DT_C_LIGHTGREEN);
 
     // ??? Save configuration if necessary ?
 
@@ -653,46 +661,58 @@ void setup() {
   wSS.pbrProgress.SetProgress(70);
 
   // 0.4 Attempt to connect to WiFi (if can not - try to launch self in AP mode ?)
- // initiate connection and start server
- WiFi.mode(WIFI_STA);
- WiFi.begin(Configuration.WiFi.SSID, Configuration.WiFi.KEY);
+  wSS.lblStatus.SetText(F("Connecting to WiFi"));
+  wSS.Render(false);
 
- for(int i=0; i < 40; i++){
-  if (WiFi.status() == WL_CONNECTED) break;
-  gfx->setCursor(20, 0);
-  gfx->setTextFont(1);
-  gfx->setTextSize(1);
-  gfx->setTextColor(TFT_WHITE, TFT_BLACK);
-  gfx->println("Connecting to WiFi...");
-  
-  gfx->setCursor(20, 30);
-  gfx->println(i);
-  delay(500);
- }
+  // if WiFi is not configured or not reachable - shall controller launch in AP mode ?
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(Configuration.WiFi.SSID, Configuration.WiFi.KEY);
+
+  for(int i=0; i < 20; i++){
+    if (WiFi.status() == WL_CONNECTED) break;
+
+    wSS.pbrProgress.SetProgress( 70 + i);
+    wSS.Render(false);
+    delay(500);
+  }
+
+  wSS.pbrProgress.SetProgress(90);
 
   // 0.5 Start web server
- WebServer.on("/", [](AsyncWebServerRequest *request) { request->send(200, "text/plain", "Hello async from controller"); });
- WebServer.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
- WebServer.on(FPSTR(FILE_WEB_HEAP), HTTP_GET, [](AsyncWebServerRequest *request){ request->send(200, "text/plain", "Free heap: " + String(ESP.getFreeHeap())); });
- WebServer.onNotFound([](AsyncWebServerRequest *request) { request->send(404, "text/plain", "Nothing found :("); });
- 
- WebEventSource.onConnect([](AsyncEventSourceClient *client){
+  wSS.lblStatus.SetText(F("Starting Web server"));
+  wSS.Render(false);
+
+  // TEMP: add hello hook to root - remove after testing
+  gi_WebServer.on(FILE_WEB_ROOT, [](AsyncWebServerRequest *request) { request->send(200, FPSTR(FILE_WEB_CT_TXT), F("Hello async from controller")); });
+  // TEMP? add hook to /heap path - show free heap for monitoring purposes
+  gi_WebServer.on(FILE_WEB_HEAP, HTTP_GET, [](AsyncWebServerRequest *request){ request->send(200, FPSTR(FILE_WEB_CT_TXT), F("Free heap: ") + String(ESP.getFreeHeap())); });
+  // serve files from filesystem with default being index.html
+  gi_WebServer.serveStatic(FILE_WEB_ROOT, LittleFS, FILE_WEB_ROOT).setDefaultFile(FILE_WEB_INDEX);
+  // add response hook on invalid paths HTTP: 404
+  gi_WebServer.onNotFound([](AsyncWebServerRequest *request) { request->send(404, FPSTR(FILE_WEB_CT_TXT), F("Nothing found :(")); });
+
+  // TODO: replace EventListener with WebSocket
+  gi_WebEventSource.onConnect([](AsyncEventSourceClient *client){
     //send event with message "hello!", id current millis and set reconnect delay to 1 second - just from sample
-    client->send("hello!",nullptr,millis(),1000);
+    client->send( "hello!", nullptr, millis(), 1000);
   });
+  gi_WebServer.addHandler(&gi_WebEventSource);
 
- WebServer.addHandler(&WebEventSource);
- 
- WebServer.begin();
+  // finally start the server
+  gi_WebServer.begin();
 
- // 0.6 no more initialization screen updates - invalidate and render main window
- wnd.Invalidate();
- wnd.Render(false);
+  wSS.lblStatus.SetText(F("Done"));
+  wSS.pbrProgress.SetProgress(100);
+  wSS.Render(false);
+
+  // 0.6 no more initialization screen updates - invalidate and render main window
+  wnd.Invalidate();
+  wnd.Render(false);
 }
 
 // todo - get rid of these
-String strStatus = String("");
-String strTempr = String("");
+String strStatus = String();
+String strTempr = String();
 
 #define BUFF_LEN 32
 
