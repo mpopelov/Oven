@@ -524,8 +524,7 @@ void setup() {
                   int nSteps = sarr.size();
 
                   // create new program
-                  TProgram* p = new TProgram( nSteps,
-                                              pobj[FPSTR(JSCONF_PROGRAM_NAME)] | F("InvalidName") );
+                  TProgram* p = new TProgram( nSteps, pobj[FPSTR(JSCONF_PROGRAM_NAME)] | String(F("InvalidName")) );
                   // read and add every step
                   for( int j = 0; j < nSteps; j++){
                     if( JsonObject sobj = sarr[j] ){
