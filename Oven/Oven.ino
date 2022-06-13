@@ -51,7 +51,7 @@ static const char FILE_CONFIGURATION[] PROGMEM = "oven.json";
 static const char FILE_WEB_ROOT[]              = "/";
 static const char FILE_WEB_INDEX[]             = "index.html";
 static const char FILE_WEB_HEAP[]              = "/heap";
-static const char FILE_WEB_WS[]                = "/ev";
+static const char FILE_WEB_WS[] PROGMEM        = "/ws";
 static const char FILE_WEB_CT_TXT[] PROGMEM    = "text/plain";
 
 // button text strings
@@ -152,14 +152,14 @@ struct {
 /**
  * Global instances
  */
-TFT_eSPI          gi_Tft = TFT_eSPI();            // TFT display driver
-LittleFSConfig    gi_FSConfig = LittleFSConfig(); // file system configuration
+TFT_eSPI          gi_Tft = TFT_eSPI();              // TFT display driver
+LittleFSConfig    gi_FSConfig = LittleFSConfig();   // file system configuration
 
-TSensor           gi_TS(D2, false);               // MAX31855 K-type temperature sensor instance
-PIDControl*       gp_PID = nullptr;               // pid control instance
+TSensor           gi_TS(D2, false);                 // MAX31855 K-type temperature sensor instance
+PIDControl*       gp_PID = nullptr;                 // pid control instance
 
-AsyncWebServer    gi_WebServer(80);                       // a web server instance
-AsyncEventSource  gi_WebEventSource(FPSTR(FILE_WEB_WS));  // an event source
+AsyncWebServer    gi_WebServer(80);                 // a web server instance
+AsyncWebSocket    gi_WebSocket(FPSTR(FILE_WEB_WS)); // web socket for communicating with OvenWEB
 
 
 
@@ -406,9 +406,21 @@ class cMainWindow : public DTWindow {
   bool _PgmSelectWindowOn;      // flag to indicate program selection window is active
   cPgmSelectWindow* SWnd;       // child window for selecting programs
 };
-
 cMainWindow wnd = cMainWindow(&gi_Tft); // main window instance
 
+/**
+ * @brief WebSocket event handler.
+ * 
+ * @param server server instance
+ * @param client client instance
+ * @param type event type
+ * @param arg event arguments
+ * @param data raw data
+ * @param len size
+ */
+void onWSEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len){
+  //Handle WebSocket event
+}
 
 /**
  * @brief Initialization routine
@@ -681,6 +693,10 @@ void setup() {
   wSS.lblStatus.SetText(F("Starting Web server"));
   wSS.Render(false);
 
+  // attach event to web socket instance
+  gi_WebSocket.onEvent(onWSEvent);
+  gi_WebServer.addHandler(&gi_WebSocket);
+
   // TEMP: add hello hook to root - remove after testing
   gi_WebServer.on(FILE_WEB_ROOT, [](AsyncWebServerRequest *request) { request->send(200, FPSTR(FILE_WEB_CT_TXT), F("Hello async from controller")); });
   // TEMP? add hook to /heap path - show free heap for monitoring purposes
@@ -689,13 +705,6 @@ void setup() {
   gi_WebServer.serveStatic(FILE_WEB_ROOT, LittleFS, FILE_WEB_ROOT).setDefaultFile(FILE_WEB_INDEX);
   // add response hook on invalid paths HTTP: 404
   gi_WebServer.onNotFound([](AsyncWebServerRequest *request) { request->send(404, FPSTR(FILE_WEB_CT_TXT), F("Nothing found :(")); });
-
-  // TODO: replace EventListener with WebSocket
-  gi_WebEventSource.onConnect([](AsyncEventSourceClient *client){
-    //send event with message "hello!", id current millis and set reconnect delay to 1 second - just from sample
-    client->send( "hello!", nullptr, millis(), 1000);
-  });
-  gi_WebServer.addHandler(&gi_WebEventSource);
 
   // finally start the server
   gi_WebServer.begin();
@@ -841,8 +850,9 @@ void loop() {
     wnd.lblStatus.SetText(strStatus); // update status text at the bottom of the screen
     wnd.lblTempr.SetText(strTempr); // update temperature value
 
-    // handle event listeners - update them with the new temperature value
-    gi_WebEventSource.send(strTempr.c_str(),"tProbe", millis());
+    // Send update to all possible connected clients sending them the state
+    strTempr = String('{"id":"STS","status":{"tProbe":300C}}');
+    gi_WebSocket.printfAll_P(F('{"id":"STS","status":{"tProbe":300C}}'), State.tProbe, State.tAmbient, State.tSP, State.U);
 
     // finally save timer value
     State.ticks_TSENSOR = ticks;
