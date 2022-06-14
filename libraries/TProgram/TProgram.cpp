@@ -52,7 +52,7 @@ double TProgramStep::CalculateSetPoint(unsigned long t)
 
 
 /**
- * @brief Initialize next program step with relevant valuse (updates the last step available)
+ * @brief Initialize next program step with relevant values (updates the last step available)
  * 
  * @param T_s desired temperature at the start of the step
  * @param T_e desired temperature at the end of the step

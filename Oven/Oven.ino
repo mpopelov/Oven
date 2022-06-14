@@ -22,11 +22,11 @@
 #include <TFT_eSPI.h>             // included for TFT support
 #include <LittleFS.h>             // included for file system support
 
-#include <ArduinoJson.h>          // included for JSON support
-
 #include <ESP8266WiFi.h>          // included for WiFi support
 #include <ESPAsyncTCP.h>          // included for async TCP communication
 #include <ESPAsyncWebServer.h>    // included for HTTP and WebSocket support
+
+#include <ArduinoJson.h>          // included for JSON support
 
 #include <DeskTop.h>              // included for simple desktop class library
 #include <TSensor.h>              // included for K-type temperature sensor support
@@ -420,6 +420,66 @@ cMainWindow wnd = cMainWindow(&gi_Tft); // main window instance
  */
 void onWSEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len){
   //Handle WebSocket event
+  switch(type){
+    case WS_EVT_CONNECT:
+      // new client connected
+    case WS_EVT_DISCONNECT:
+      // client disconnected
+    case WS_EVT_PONG:
+      // received PONG response to previously sent PING request
+    case WS_EVT_ERROR:
+      // an error occured
+      break; // so far do nothing on the above events
+    case WS_EVT_DATA:
+    {
+      // handle data event - only accept text data (ignore binary data)
+      AwsFrameInfo * info = (AwsFrameInfo*)arg;
+
+      // discard any non-text (binary) data
+      if(info->opcode != WS_TEXT) break;
+
+      // proceed with text data
+      String msg = "";
+      if(info->final && info->index == 0 && info->len == len){
+        //the whole message is in a single frame and we got all of it's data
+        //Serial.printf("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT)?"text":"binary", info->len);
+
+        // build text data
+        for(size_t i=0; i < info->len; i++) {
+          msg += (char) data[i];
+        }
+        // process it
+        Serial.printf("%s\n",msg.c_str());
+        //send response
+        client->text("I got your text message");
+        // done handling the whole message
+      } else {
+        //message is comprised of multiple frames or the frame is split into multiple packets
+        if(info->index == 0){
+          if(info->num == 0)
+            Serial.printf("ws[%s][%u] %s-message start\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
+          Serial.printf("ws[%s][%u] frame[%u] start[%llu]\n", server->url(), client->id(), info->num, info->len);
+        }
+
+        Serial.printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: ", server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT)?"text":"binary", info->index, info->index + len);
+
+        for(size_t i=0; i < len; i++) {
+          msg += (char) data[i];
+        }
+        Serial.printf("%s\n",msg.c_str());
+
+        if((info->index + len) == info->len){
+          Serial.printf("ws[%s][%u] frame[%u] end[%llu]\n", server->url(), client->id(), info->num, info->len);
+          if(info->final){
+            Serial.printf("ws[%s][%u] %s-message end\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
+            // handle text message
+            client->text("I got your text message");
+          }
+        }
+      }
+    } // done handling WS_EVT_DATA
+  }
+  // done handling WebSocket event
 }
 
 /**
@@ -851,8 +911,54 @@ void loop() {
     wnd.lblTempr.SetText(strTempr); // update temperature value
 
     // Send update to all possible connected clients sending them the state
-    strTempr = String('{"id":"STS","status":{"tProbe":300C}}');
-    gi_WebSocket.printfAll_P(F('{"id":"STS","status":{"tProbe":300C}}'), State.tProbe, State.tAmbient, State.tSP, State.U);
+    if(gi_WebSocket.count()) {
+      StaticJsonDocument<2048> jDoc; // adjust capacity to something more appropriate for status JSON document
+      
+      // add message id
+      jDoc["id"] = "STS";
+      
+      // add status and populate fields
+      JsonObject joStatus = jDoc.createNestedObject("status");
+      joStatus["tPB"] = State.tProbe;
+      joStatus["tAM"] = State.tAmbient;
+      joStatus["tSP"] = State.tSP;
+      joStatus["U"] = State.U;
+      joStatus["isRunning"] = State.isPgmRunning;
+      joStatus["isRelayOn"] = State.isRelayOn;
+      joStatus["stsText"] = strStatus;
+
+      // relevant information about active program
+      if(State.ActiveProgram != nullptr){
+        joStatus["actStep"] = State.ActiveProgram->GetStepsCurrent();
+        joStatus["tmElapsed"] = State.ActiveProgram->GetDurationElapsed();
+
+        // add active program
+        JsonObject joProgram = joStatus.createNestedObject("actPgm");
+        joProgram[FPSTR(JSCONF_PROGRAM_NAME)] = State.ActiveProgram->GetName();
+
+        // add steps array and loop through all steps adding their parameters
+        JsonArray jaSteps = joProgram.createNestedArray(FPSTR(JSCONF_PROGRAM_STEPS));
+        for(int i = 0; i < State.ActiveProgram->GetStepsTotal(); i++){
+          JsonObject joStep = jaSteps.createNestedObject();
+          joStep[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] = 100; // start temperature
+          joStep[FPSTR(JSCONF_PROGRAM_STEP_TEND)] = 200; // end temperature
+          joStep[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] = 86400; // duration in ms
+        }
+      }else{
+        // there is no active program
+        joStatus["actPgm"] = nullptr;
+        joStatus["actStep"] = 0;
+        joStatus["tmElapsed"] = 0;
+      }
+
+      // send resulting JSON to clients
+      size_t jdLen = measureJson(jDoc); // length of the resulting condenced JSON excluding 0-terminator
+      AsyncWebSocketMessageBuffer * buffer = gi_WebSocket.makeBuffer(jdLen); // allocates buffer that includes 0-terminator
+      if(buffer){
+        serializeJson(jDoc, buffer->get(), jdLen + 1); // note accounting for 0-terminator in the length of the buffer provided to function
+        gi_WebSocket.textAll(buffer);
+      }
+    }
 
     // finally save timer value
     State.ticks_TSENSOR = ticks;
