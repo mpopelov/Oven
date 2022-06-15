@@ -42,6 +42,8 @@ class TProgramStep
      // helper functions to access private data members
      unsigned long GetDueTime() { return dueTime; }     // get due time for program step to be over relative to program start
      unsigned long GetDuration() { return duration; }   // return duration
+     double GetTStart() { return T_start; }
+     double GetTEnd() { return T_end; }
 
     private:
 
@@ -103,7 +105,7 @@ class TProgram
      unsigned long       GetDurationTotal() { return _totalDuration; }  // return precalculated total duration of the program
      unsigned long       GetDurationElapsed() { return _timeElapsed; }  // return time elapsed since program start
      unsigned long       GetDurationElapsedStep() { return _timeElapsedStep; }  // return time elapsed within current step
-     const TProgramStep* GetStep(int i) { if(i>=0 && i<_nSteps) return &(_steps[i]); else return nullptr; } //return step #i
+     TProgramStep* GetStep(int i) { if(i>=0 && i<_nSteps) return &(_steps[i]); else return nullptr; } //return step #i
 
     private:
      String         _name;          // program human readable name

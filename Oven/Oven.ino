@@ -456,29 +456,28 @@ void onWSEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
           msg += (char) data[i];
         }
         // process it
-        Serial.printf("%s\n",msg.c_str());
+        // Serial.printf("%s\n",msg.c_str());
         //send response
         client->text("I got your text message");
         // done handling the whole message
       } else {
         //message is comprised of multiple frames or the frame is split into multiple packets
         if(info->index == 0){
-          if(info->num == 0)
-            Serial.printf("ws[%s][%u] %s-message start\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
-          Serial.printf("ws[%s][%u] frame[%u] start[%llu]\n", server->url(), client->id(), info->num, info->len);
+          //if(info->num == 0) Serial.printf("ws[%s][%u] %s-message start\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
+          //Serial.printf("ws[%s][%u] frame[%u] start[%llu]\n", server->url(), client->id(), info->num, info->len);
         }
 
-        Serial.printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: ", server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT)?"text":"binary", info->index, info->index + len);
+        //Serial.printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: ", server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT)?"text":"binary", info->index, info->index + len);
 
         for(size_t i=0; i < len; i++) {
           msg += (char) data[i];
         }
-        Serial.printf("%s\n",msg.c_str());
+        //Serial.printf("%s\n",msg.c_str());
 
         if((info->index + len) == info->len){
-          Serial.printf("ws[%s][%u] frame[%u] end[%llu]\n", server->url(), client->id(), info->num, info->len);
+          //Serial.printf("ws[%s][%u] frame[%u] end[%llu]\n", server->url(), client->id(), info->num, info->len);
           if(info->final){
-            Serial.printf("ws[%s][%u] %s-message end\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
+            //Serial.printf("ws[%s][%u] %s-message end\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
             // handle text message
             client->text("I got your text message");
           }
@@ -947,9 +946,9 @@ void loop() {
         JsonArray jaSteps = joProgram.createNestedArray(FPSTR(JSCONF_PROGRAM_STEPS));
         for(int i = 0; i < State.ActiveProgram->GetStepsTotal(); i++){
           JsonObject joStep = jaSteps.createNestedObject();
-          joStep[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] = 100; // start temperature
-          joStep[FPSTR(JSCONF_PROGRAM_STEP_TEND)] = 200; // end temperature
-          joStep[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] = 86400; // duration in ms
+          joStep[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] = State.ActiveProgram->GetStep(i)->GetTStart(); // start temperature
+          joStep[FPSTR(JSCONF_PROGRAM_STEP_TEND)] = State.ActiveProgram->GetStep(i)->GetTEnd(); // end temperature
+          joStep[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] = State.ActiveProgram->GetStep(i)->GetDuration(); // duration in ms
         }
       }else{
         // there is no active program
