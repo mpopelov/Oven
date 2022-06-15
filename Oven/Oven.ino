@@ -177,7 +177,7 @@ class cSplashScreenWindow : public DTWindow {
   public:
   cSplashScreenWindow(TFT_eSPI& gfx) :
   DTWindow(gfx, 0, 0, 320, 240, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND),
-  pbrProgress( gfx, 10, 116, 300,  8, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_GREY, DT_C_LIGHTGREEN ),
+  pbrProgress( gfx, 20, 116, 280,  8, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED | DTPROGRESSBAR_BRDR_ON, DT_C_BACKGROUND, DT_C_GREY, DT_C_LIGHTGREEN ),
     lblStatus( gfx, 10, 126, 300, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND,  DT_C_RED, DT_C_LIGHTGREEN, &FSN1, String())
   {
     AddControl(&pbrProgress);
@@ -498,7 +498,6 @@ void onWSEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
  *          - Launches web server
  */
 void setup() {
-
   uint8_t calDataOK = 0;            // calibration data reding status
   cSplashScreenWindow wSS(gi_Tft);  // splash screen window
   StaticJsonDocument<4096> JDoc;
@@ -520,6 +519,7 @@ void setup() {
   // 01. Initialize filesystem support
   wSS.lblStatus.SetText(F("Init filesystem..."));
   wSS.Render(false);
+  yield();
 
   gi_FSConfig.setAutoFormat(false);
   LittleFS.setConfig(gi_FSConfig);
@@ -533,6 +533,7 @@ void setup() {
   // 02. Try to read and parse configuration
   wSS.lblStatus.SetText(F("Reading config..."));
   wSS.Render(false);
+  yield();
 
   // check if configuration file exists
   // if it does - read JSON and fill in configuration structure
@@ -562,13 +563,15 @@ void setup() {
             } // else - leave calibration data as 0
           }
         }
+        yield();
         
         // b. read WiFi parameters
         if( JsonObject obj = JDoc[FPSTR(JSCONF_WIFI)] ){
           // WiFi section is present in the document
-          Configuration.WiFi.SSID = obj[FPSTR(JSCONF_WIFI_SSID)] | String();
-          Configuration.WiFi.KEY = obj[FPSTR(JSCONF_WIFI_KEY)] | String();
+          Configuration.WiFi.SSID = obj[FPSTR(JSCONF_WIFI_SSID)].as<String>();
+          Configuration.WiFi.KEY = obj[FPSTR(JSCONF_WIFI_KEY)].as<String>();
         }
+        yield();
 
         // c. read PID parameters
         if( JsonObject obj = JDoc[FPSTR(JSCONF_PID)] ){
@@ -578,6 +581,7 @@ void setup() {
           Configuration.PID.KI = obj[FPSTR(JSCONF_PID_KI)] | 1.0;
           Configuration.PID.KD = obj[FPSTR(JSCONF_PID_KD)] | 1.0;
         }
+        yield();
 
         // d. read programs
         if( JsonArray parr = JDoc[FPSTR(JSCONF_PROGRAMS)] ){
@@ -616,6 +620,7 @@ void setup() {
                   p->Reset(); // reset program to ready state
                   Configuration.Programs[i] = p; // add it to an array of programs
                 }
+                yield();
 
                 // at this pont Configuration.Programs[i] is either nullptr or a valid object
               }
@@ -703,6 +708,7 @@ void setup() {
   // 03. Calibrate touch screen if necessary
   wSS.lblStatus.SetText(F("Setting up touchscreen..."));
   wSS.Render(false);
+  yield();
 
   calDataOK = ( Configuration.TFT.data.tft[0] != 0 && Configuration.TFT.data.tft[1] != 0 && Configuration.TFT.data.tft[2] != 0);
   if (calDataOK) {
@@ -722,6 +728,7 @@ void setup() {
     wSS.lblStatus.SetTextColor(DT_C_GREEN);
     wSS.lblStatus.SetText(F("Calibration complete!"));
     wSS.Render(false);
+    yield();
     // reset color to normal
     wSS.lblStatus.SetTextColor(DT_C_LIGHTGREEN);
 
@@ -738,26 +745,32 @@ void setup() {
   wSS.pbrProgress.SetProgress(70);
 
   // 0.4 Attempt to connect to WiFi (if can not - try to launch self in AP mode ?)
-  wSS.lblStatus.SetText(F("Connecting to WiFi"));
+  wSS.lblStatus.SetText( String(F("Connecting to WiFi ")) + Configuration.WiFi.KEY );
   wSS.Render(false);
+  yield();
 
   // if WiFi is not configured or not reachable - shall controller launch in AP mode ?
   WiFi.mode(WIFI_STA);
   WiFi.begin(Configuration.WiFi.SSID, Configuration.WiFi.KEY);
-
+  yield();
+  
   for(int i=0; i < 20; i++){
     if (WiFi.status() == WL_CONNECTED) break;
 
     wSS.pbrProgress.SetProgress( 70 + i);
+    wSS.lblStatus.SetText( String(F("Free heap: ")) + String(ESP.getFreeHeap()) );
     wSS.Render(false);
     delay(500);
   }
+  
 
   wSS.pbrProgress.SetProgress(90);
 
   // 0.5 Start web server
   wSS.lblStatus.SetText(F("Starting Web server"));
   wSS.Render(false);
+
+  delay(5000);
 
   // attach event to web socket instance
   gi_WebSocket.onEvent(onWSEvent);
@@ -778,6 +791,8 @@ void setup() {
   wSS.lblStatus.SetText(F("Done"));
   wSS.pbrProgress.SetProgress(100);
   wSS.Render(false);
+
+  delay(5000);
 
   // 0.6 no more initialization screen updates - invalidate and render main window
   wnd.Invalidate();
@@ -802,7 +817,6 @@ void loop() {
 
   unsigned long ticks = millis();
   uint16_t x,y;
-  bool pressed;
   char buff[BUFF_LEN];
 
   // allow handling touch screen events early to allow emergency oven stop as early as possible
