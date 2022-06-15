@@ -97,23 +97,23 @@ static const char JSCONF_PROGRAM_STEP_DURATION[] PROGMEM  = "duration";
  * @brief Global configuration
  * 
  */
-struct {
+struct _sConfiguration {
 
-  struct {
+  struct _sTFT {
     unsigned long poll = 300;                // poll touch screen that often (in ms)
-    union {
+    union _uData {
       uint32_t tft[3] = {0, 0, 0};
       uint16_t raw[6];
     } data;
   } TFT;
 
-  struct {
+  struct _sWiFi {
     String SSID;
     String KEY;
     String IP;
   } WiFi;
 
-  struct {
+  struct _sPID {
     unsigned long poll = 1000;               // only measure temperature that often (in ms)
     double KP = NAN;
     double KI = NAN;
@@ -129,7 +129,7 @@ struct {
  * @brief Global controller state
  * 
  */
-struct {
+struct _sState {
 
   double tProbe = NAN;                        // current temperature as reported by probe
   double tAmbient = NAN;                      // current ambient temperature
@@ -175,7 +175,7 @@ AsyncWebSocket    gi_WebSocket(FPSTR(FILE_WEB_WS)); // web socket for communicat
  */
 class cSplashScreenWindow : public DTWindow {
   public:
-  cSplashScreenWindow(TFT_eSPI* gfx) :
+  cSplashScreenWindow(TFT_eSPI& gfx) :
   DTWindow(gfx, 0, 0, 320, 240, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND),
   pbrProgress( gfx, 10, 116, 300,  8, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_GREY, DT_C_LIGHTGREEN ),
     lblStatus( gfx, 10, 126, 300, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND,  DT_C_RED, DT_C_LIGHTGREEN, &FSN1, String())
@@ -199,7 +199,7 @@ class cSplashScreenWindow : public DTWindow {
  */
 class cPgmSelectWindow : public DTWindow {
   public:
-  cPgmSelectWindow(TFT_eSPI* gfx, DTDelegate callback) :
+  cPgmSelectWindow(TFT_eSPI& gfx, DTDelegate callback) :
   DTWindow( gfx, 0, 0, 320, 240, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND),
       btnUp( gfx, 270,   0,  50,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSB2, F("UP"), DTDelegate::create<cPgmSelectWindow,&cPgmSelectWindow::OnButton_Up>(this)),
       btnOk( gfx, 270,  51,  50,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREEN, DT_C_BACKGROUND, &FSB2, F("OK"), DTDelegate::create<cPgmSelectWindow,&cPgmSelectWindow::OnButton_Ok>(this)),
@@ -242,7 +242,7 @@ class cPgmSelectWindow : public DTWindow {
  */
 class cMainWindow : public DTWindow {
   public:
-  cMainWindow(TFT_eSPI* gfx) :
+  cMainWindow(TFT_eSPI& gfx) :
   _PgmSelectWindowOn(false), SWnd(nullptr),
   DTWindow(gfx, 0, 0, 320, 240, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND),
   // initialize child elements
@@ -295,19 +295,26 @@ class cMainWindow : public DTWindow {
       // new program was selected
       // update active program with the one selected only if controller is not in running mode
       if(!State.isPgmRunning){
-       uint16_t _pgmIdx = SWnd->selProgs.GetSelected();
-       if(_pgmIdx < Configuration.nPrograms) State.ActiveProgram = Configuration.Programs[_pgmIdx]; // !TODO: create a disconnected copy!!!!!
-       // set selected program details
-       lblProgramName.SetText(State.ActiveProgram->GetName());
-       lblStepTotal.SetText(String(State.ActiveProgram->GetStepsTotal()));
-       lblStepNumber.SetText(String(State.ActiveProgram->GetStepsCurrent()));
+        uint16_t _pgmIdx = SWnd->selProgs.GetSelected();
+        if(_pgmIdx < Configuration.nPrograms){
+          // delete active program if it was there
+          if(State.ActiveProgram != nullptr) delete State.ActiveProgram;
 
-       // show initial duration of selected program
-       char buff[12];
-       unsigned long t = State.ActiveProgram->GetDurationTotal();
-       snprintf(buff, 12, "%02u:%02u:%02u", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
-       lblProgramTimeValue.SetText(String(buff));
-       // end of adjusting controls
+          // create a copy of selected program
+          State.ActiveProgram = new TProgram(*Configuration.Programs[_pgmIdx]); // invoke copy constructor
+
+          // set selected program details
+          lblProgramName.SetText(State.ActiveProgram->GetName());
+          lblStepTotal.SetText(String(State.ActiveProgram->GetStepsTotal()));
+          lblStepNumber.SetText(String(State.ActiveProgram->GetStepsCurrent()));
+
+          // show initial duration of selected program
+          char buff[12];
+          unsigned long t = State.ActiveProgram->GetDurationTotal();
+          snprintf(buff, 12, "%02u:%02u:%02u", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
+          lblProgramTimeValue.SetText(String(buff));
+          // end of adjusting controls
+        }
       }
     }else{
       // just cancelled
@@ -406,7 +413,7 @@ class cMainWindow : public DTWindow {
   bool _PgmSelectWindowOn;      // flag to indicate program selection window is active
   cPgmSelectWindow* SWnd;       // child window for selecting programs
 };
-cMainWindow wnd = cMainWindow(&gi_Tft); // main window instance
+cMainWindow wnd(gi_Tft); // main window instance
 
 /**
  * @brief WebSocket event handler.
@@ -493,8 +500,8 @@ void onWSEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
  */
 void setup() {
 
-  uint8_t calDataOK = 0;                                  // calibration data reding status
-  cSplashScreenWindow wSS = cSplashScreenWindow(&gi_Tft); // splash screen window
+  uint8_t calDataOK = 0;            // calibration data reding status
+  cSplashScreenWindow wSS(gi_Tft);  // splash screen window
   StaticJsonDocument<4096> JDoc;
 
   // initialize screen

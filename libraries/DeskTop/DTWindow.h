@@ -33,7 +33,7 @@ class DTWindow : public DTControl
 {
     public:
      // CTor
-     DTWindow(TFT_eSPI* gfx,
+     DTWindow(TFT_eSPI& gfx,
                uint16_t x,
                uint16_t y,
                uint16_t w,
@@ -43,7 +43,7 @@ class DTWindow : public DTControl
      DTControl(gfx, x, y, w, h, flags), _bkg_color(bkgc), _controls(nullptr) {}
 
      // add controls to window plane
-     virtual void AddControl(DTControl* c);
+     void AddControl(DTControl* c);
      // handle events
      virtual bool HandleEvent(uint16_t x, uint16_t y, bool pressed);
      // handle rendering

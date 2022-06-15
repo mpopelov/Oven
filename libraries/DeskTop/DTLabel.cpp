@@ -27,23 +27,23 @@ void DTLabel::Render(bool parentCleared)
     if(_flags & DTCONTROL_FLAGS_INVALIDATED){
         
         // some basic drawing goes here: just clean the surface with back color if parent control was not invalidated
-        if(!parentCleared) _gfx->fillRect(_x, _y, _w, _h, _bkg_color);
+        if(!parentCleared) _gfx.fillRect(_x, _y, _w, _h, _bkg_color);
 
         // redraw borders if necessary
-        if(_flags & DTLABEL_BRDR_TOP) _gfx->drawFastHLine(_x, _y, _w, _brd_color);
-        if(_flags & DTLABEL_BRDR_LEFT) _gfx->drawFastVLine(_x, _y, _h, _brd_color);
-        if(_flags & DTLABEL_BRDR_RIGHT) _gfx->drawFastVLine(_x+_w-1, _y, _h, _brd_color);
-        if(_flags & DTLABEL_BRDR_BOTTOM) _gfx->drawFastHLine(_x, _y+_h-1, _w, _brd_color);
+        if(_flags & DTLABEL_BRDR_TOP) _gfx.drawFastHLine(_x, _y, _w, _brd_color);
+        if(_flags & DTLABEL_BRDR_LEFT) _gfx.drawFastVLine(_x, _y, _h, _brd_color);
+        if(_flags & DTLABEL_BRDR_RIGHT) _gfx.drawFastVLine(_x+_w-1, _y, _h, _brd_color);
+        if(_flags & DTLABEL_BRDR_BOTTOM) _gfx.drawFastHLine(_x, _y+_h-1, _w, _brd_color);
 
         // draw the text
-        _gfx->setFreeFont(_font);
-        _gfx->setTextSize(1);
-        _gfx->setTextColor(_lbl_color, _bkg_color);
-        _gfx->setTextDatum(ML_DATUM);
-        _gfx->setTextPadding(0);
+        _gfx.setFreeFont(_font);
+        _gfx.setTextSize(1);
+        _gfx.setTextColor(_lbl_color, _bkg_color);
+        _gfx.setTextDatum(ML_DATUM);
+        _gfx.setTextPadding(0);
 
         // draw string - note _x padding with 2 pixels to compensate for borders
-        _gfx->drawString(_lbl, _x+2, _y+(_h/2)-1);
+        _gfx.drawString(_lbl, _x+2, _y+(_h/2)-1);
         
         // remember to reset invalidation flags
         _flags &= ~DTCONTROL_FLAGS_INVALIDATED;

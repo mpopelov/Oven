@@ -203,7 +203,7 @@ const double TSensor::c_negative[] = {0.000000000000E+00,
                                      -0.198892668780E-19,
                                      -0.163226974860E-22};
 
-// voltage-to-temperature coeffitients fo -200 to 0 range
+// voltage-to-temperature coeffitients for -200 to 0 range
 const double TSensor::d_200_0[] = {0.0000000E+00,
                                    2.5173462E+01,
                                   -1.1662878E+00,
@@ -215,7 +215,7 @@ const double TSensor::d_200_0[] = {0.0000000E+00,
                                   -5.1920577E-04,
                                    0.0000000E+00};
 
-// voltage-to-temperature coeffitients fo 0 to 500 range
+// voltage-to-temperature coeffitients for 0 to 500 range
 const double TSensor::d_0_500[] = {0.000000E+00,
                                    2.508355E+01,
                                    7.860106E-02,
@@ -227,7 +227,7 @@ const double TSensor::d_0_500[] = {0.000000E+00,
                                    1.057734E-06,
                                   -1.052755E-08};
 
-// voltage-to-temperature coeffitients fo 0 to 500 range
+// voltage-to-temperature coeffitients for 500 to 1372 range
 const double TSensor::d_500_1372[] = {-1.318058E+02,
                                        4.830222E+01,
                                       -1.646031E+00,

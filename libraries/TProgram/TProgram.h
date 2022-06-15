@@ -66,7 +66,21 @@ class TProgram
      TProgram(int numSteps, String name)
      : _name(name), _nSteps(numSteps), _timeElapsed(0), _timeElapsedStep(0), _timeLast(0), _totalDuration(0), _idx(0)
      {
-         if(_nSteps > 0) _steps = new TProgramStep[_nSteps];
+         if(_nSteps > 0)
+            _steps = new TProgramStep[_nSteps];
+        else
+            _steps = nullptr;
+     }
+
+     // copy constructor to create disconnected copy for active program to run
+     TProgram(const TProgram& p)
+     : _name(p._name), _nSteps(p._nSteps), _timeElapsed(p._timeElapsed), _timeElapsedStep(p._timeElapsedStep), _timeLast(p._timeLast), _totalDuration(p._totalDuration), _idx(p._idx)
+     {
+        // copy steps
+        if(_nSteps > 0){
+            _steps = new TProgramStep[_nSteps];
+            for(int i = 0; i < _nSteps; i++) _steps[i] = p._steps[i];
+        } else _steps = nullptr;
      }
 
      ~TProgram()
@@ -83,12 +97,13 @@ class TProgram
      void   Reset();                // reset program
 
      // property getters
-     const String& GetName() { return _name; }; // return program name
-     int GetStepsTotal() { return _nSteps; }    // return total number of steps in control program
-     int GetStepsCurrent() { return _idx + 1; }     // return current step of the program in human acceptable form (i.e. starting with 1)
-     unsigned long GetDurationTotal() { return _totalDuration; } // return precalculated total duration of the program
-     unsigned long GetDurationElapsed() { return _timeElapsed; } // return time elapsed since program start
-     unsigned long GetDurationElapsedStep() { return _timeElapsedStep; } // return time elapsed within current step
+     const String&       GetName() { return _name; }; // return program name
+     int                 GetStepsTotal() { return _nSteps; }    // return total number of steps in control program
+     int                 GetStepsCurrent() { return _idx + 1; } // return current step of the program in human acceptable form (i.e. starting with 1)
+     unsigned long       GetDurationTotal() { return _totalDuration; }  // return precalculated total duration of the program
+     unsigned long       GetDurationElapsed() { return _timeElapsed; }  // return time elapsed since program start
+     unsigned long       GetDurationElapsedStep() { return _timeElapsedStep; }  // return time elapsed within current step
+     const TProgramStep* GetStep(int i) { if(i>=0 && i<_nSteps) return &(_steps[i]); else return nullptr; } //return step #i
 
     private:
      String         _name;          // program human readable name
@@ -103,7 +118,6 @@ class TProgram
      TProgramStep*  _steps;         // arrays of steps
 
      // prevent copying the class
-     TProgram(const TProgram& p) = delete;
      TProgram& operator=(const TProgram& p) = delete;
 };
 

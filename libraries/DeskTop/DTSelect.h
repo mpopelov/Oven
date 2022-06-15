@@ -39,7 +39,7 @@ struct DTSelectItem
 class DTSelect : public DTControl
 {
     public:
-     DTSelect(TFT_eSPI* gfx,
+     DTSelect(TFT_eSPI& gfx,
                uint16_t x,
                uint16_t y,
                uint16_t w,
@@ -56,9 +56,9 @@ class DTSelect : public DTControl
       _items_first(nullptr), _items_last(nullptr), _items_current(nullptr), _lbls(nullptr)
       {
           // set font and its size in order to correctly identify the height of the item label
-          gfx->setFreeFont(f);
-          gfx->setTextSize(1);
-          int16_t sel_lbl_height = 2 + gfx->fontHeight(); // get the height of the font and add 2 pixels for padding around the text
+          gfx.setFreeFont(f);
+          gfx.setTextSize(1);
+          int16_t sel_lbl_height = 2 + gfx.fontHeight(); // get the height of the font and add 2 pixels for padding around the text
 
           _lbl_max = _h / sel_lbl_height; // this many items can be displayed given height provided
           if(_lbl_max == 0) return; // nothing to show really
@@ -102,10 +102,10 @@ class DTSelect : public DTControl
      virtual void Invalidate();               // invalidate impacted controls
 
      // manipulating items
-     virtual void AddItem(uint16_t idx, const String& txt); // adds item to the list
-     virtual uint16_t GetSelected();                        // get an index of currently selected item
-     virtual void MoveNext();                               // move selection to the next item
-     virtual void MovePrev();                               // move selection to previous item
+     void AddItem(uint16_t idx, const String& txt); // adds item to the list
+     uint16_t GetSelected();                        // get an index of currently selected item
+     void MoveNext();                               // move selection to the next item
+     void MovePrev();                               // move selection to previous item
 
     protected:
      const GFXfont* _font;     // font to print item text

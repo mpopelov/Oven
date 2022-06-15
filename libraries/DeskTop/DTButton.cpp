@@ -10,18 +10,18 @@ void DTButton::Render(bool parentCleared)
     if(_flags & DTCONTROL_FLAGS_INVALIDATED){
         
         // draw button itself regardless of parent state
-        _gfx->fillRoundRect(_x, _y, _w, _h, 4, _btn_color);
+        _gfx.fillRoundRect(_x, _y, _w, _h, 4, _btn_color);
 
         // draw the text
-        _gfx->setFreeFont(_font);
-        _gfx->setTextSize(1);
-        _gfx->setTextColor(_txt_color, _btn_color);
-        _gfx->setTextDatum(MC_DATUM);
-        _gfx->setTextPadding(0);
+        _gfx.setFreeFont(_font);
+        _gfx.setTextSize(1);
+        _gfx.setTextColor(_txt_color, _btn_color);
+        _gfx.setTextDatum(MC_DATUM);
+        _gfx.setTextPadding(0);
 
 
         // draw string - note _x padding with 2 pixels
-        _gfx->drawString(_lbl, _x + (_w/2) -1, _y + (_h/2) -1);
+        _gfx.drawString(_lbl, _x + (_w/2) -1, _y + (_h/2) -1);
         // remember to reset invalidation flags
         _flags &= ~DTCONTROL_FLAGS_INVALIDATED;
     }

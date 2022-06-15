@@ -29,7 +29,7 @@
 class DTProgressBar : public DTControl
 {
     public:
-     DTProgressBar(TFT_eSPI* gfx,
+     DTProgressBar(TFT_eSPI& gfx,
             uint16_t x,
             uint16_t y,
             uint16_t w,
@@ -42,7 +42,7 @@ class DTProgressBar : public DTControl
      _progress(0), _bkg_color(bkgc), _brd_color(brdc), _pbr_color(pbrc)
      {}
 
-     virtual void SetProgress(uint16_t progress);
+     void SetProgress(uint16_t progress);
      virtual void Render(bool parentCleared); // redraw the label
 
     protected:

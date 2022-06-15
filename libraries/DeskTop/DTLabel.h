@@ -26,7 +26,7 @@
 class DTLabel : public DTControl
 {
     public:
-     DTLabel(TFT_eSPI* gfx,
+     DTLabel(TFT_eSPI& gfx,
             uint16_t x,
             uint16_t y,
             uint16_t w,
@@ -36,16 +36,16 @@ class DTLabel : public DTControl
             uint16_t brdc,
             uint16_t lblc,
             const GFXfont* f,
-            const String& lbl)
+            String lbl)
      : DTControl(gfx, x, y, w, h, flags), _bkg_color(bkgc), _brd_color(brdc), _lbl_color(lblc), _font(f), _lbl(lbl)
      {}
 
      // change label text
-     virtual void SetText(const String& t);
+     void SetText(const String& t);
      // set text color
-     virtual void SetTextColor(uint16_t c);
+     void SetTextColor(uint16_t c);
      // set background color
-     virtual void SetBackColor(uint16_t c);
+     void SetBackColor(uint16_t c);
      
      virtual void Render(bool parentCleared); // redraw the label
 

@@ -172,7 +172,7 @@ void DTSelect::Render(bool parentCleared)
         // and avoid screen flickering.
         // also adjust parentCleared value to let children know we have done so alredy
         if(!parentCleared){
-            _gfx->fillRect(_x, _y, _w, _h, _bkgc);
+            _gfx.fillRect(_x, _y, _w, _h, _bkgc);
             parentCleared = true;
         }
 

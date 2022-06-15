@@ -36,7 +36,7 @@ class DTButton : public DTControl
      * @param txt text string to show as label
      * @param callback pointer to callback function or nullptr if there is none
      */
-     DTButton(TFT_eSPI* gfx,
+     DTButton(TFT_eSPI& gfx,
                uint16_t x,
                uint16_t y,
                uint16_t w,
@@ -45,15 +45,15 @@ class DTButton : public DTControl
                uint16_t btnc,
                uint16_t txtc,
                const GFXfont* f,
-               const String& txt,
+               String txt,
                DTDelegate callback)
      : DTControl(gfx, x, y, w, h, flags), _btn_color(btnc), _txt_color(txtc), _font(f), _lbl(txt), _callback(callback)
      {}
 
      virtual bool HandleEvent(uint16_t x, uint16_t y, bool pressed);
      virtual void Render(bool parentCleared);
-     virtual void SetText(const String& t);
-     virtual void SetBtnColor(uint16_t c);
+     void SetText(const String& t);
+     void SetBtnColor(uint16_t c);
 
     protected:
      uint16_t       _btn_color; // button color

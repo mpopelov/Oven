@@ -34,7 +34,7 @@ void DTControl::Render(bool parentCleared)
         
         // first step is to clear the surface.
         // in case parent control has also been invalidated we may skip this step to avoid costly drawing on TFT via SPI bus and avoid screen flickering.
-        if(!parentCleared) _gfx->fillRect(_x, _y, _w, _h, TFT_BLACK);
+        if(!parentCleared) _gfx.fillRect(_x, _y, _w, _h, TFT_BLACK);
 
         // remember to reset invalidation flags
         _flags &= ~DTCONTROL_FLAGS_INVALIDATED;

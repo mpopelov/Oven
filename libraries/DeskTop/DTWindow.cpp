@@ -45,7 +45,7 @@ void DTWindow::Render(bool parentCleared)
     {
         // if parent has not invalidated - clear window contents with background color
         if(!parentCleared){
-            _gfx->fillRect(_x, _y, _w, _h, _bkg_color);
+            _gfx.fillRect(_x, _y, _w, _h, _bkg_color);
             parentCleared = true;
         }
 
