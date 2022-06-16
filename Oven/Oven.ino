@@ -757,7 +757,7 @@ void setup() {
   WiFi.begin(Configuration.WiFi.SSID, Configuration.WiFi.KEY);
   delay(100);
   
-  for(int i=0; i < 20; i++){
+  for(int i=0; i < 10; i++){
     if (WiFi.status() == WL_CONNECTED) break;
 
     wSS.pbrProgress.SetProgress( 70 + i);
