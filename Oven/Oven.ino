@@ -765,6 +765,11 @@ void setup() {
     wSS.Render(false);
     delay(500);
   }
+
+  /*// alternative way:
+  if( WiFi.waitForConnectResult(10000) != WL_CONNECTED){
+    // log error or say something
+  }*/
   
 
   wSS.pbrProgress.SetProgress(90);
