@@ -4,6 +4,12 @@
         "*.tcc": "cpp",
         "cmath": "cpp",
         "random": "cpp",
-        "*.ino": "cpp"
+        "*.ino": "cpp",
+        "*.inc": "cpp",
+        "iomanip": "cpp",
+        "istream": "cpp",
+        "ostream": "cpp",
+        "sstream": "cpp",
+        "regex": "cpp"
     }
 }
