@@ -18,7 +18,7 @@
  * @brief Basic button class
  * 
  */
-class DTButton : public DTControl
+class DTButton : public DTControl, public String
 {
     public:
     /**
@@ -36,31 +36,30 @@ class DTButton : public DTControl
      * @param txt text string to show as label
      * @param callback pointer to callback function or nullptr if there is none
      */
-     DTButton(TFT_eSPI& gfx,
-               uint16_t x,
-               uint16_t y,
-               uint16_t w,
-               uint16_t h,
-               uint32_t flags,
-               uint16_t btnc,
-               uint16_t txtc,
-               const GFXfont* f,
-               String txt,
-               DTDelegate callback)
-     : DTControl(gfx, x, y, w, h, flags), _btn_color(btnc), _txt_color(txtc), _font(f), _lbl(txt), _callback(callback)
-     {}
+    DTButton(TFT_eSPI& gfx, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t flags,
+             uint16_t btnc, uint16_t txtc, const GFXfont* f, const char* txt, DTDelegate callback)
+    : DTControl(gfx, x, y, w, h, flags), String(txt),
+    _btn_color(btnc), _txt_color(txtc), _font(f), _callback(callback)
+    {}
 
-     virtual bool HandleEvent(uint16_t x, uint16_t y, bool pressed);
-     virtual void Render(bool parentCleared);
-     void SetText(const String& t);
-     void SetBtnColor(uint16_t c);
+    DTButton(TFT_eSPI& gfx, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t flags,
+             uint16_t btnc, uint16_t txtc, const GFXfont* f, const __FlashStringHelper* txt, DTDelegate callback)
+    : DTControl(gfx, x, y, w, h, flags), String(txt),
+    _btn_color(btnc), _txt_color(txtc), _font(f), _callback(callback)
+    {}
+
+    virtual bool HandleEvent(uint16_t x, uint16_t y, bool pressed);
+    virtual void Render(bool parentCleared);
+    template <class T>
+    String& operator=(T arg){ Invalidate(); return String::operator=(arg); }
+
+    void SetBtnColor(uint16_t c);
 
     protected:
-     uint16_t       _btn_color; // button color
-     uint16_t       _txt_color; // label textcolor
-     const GFXfont* _font; //
-     String         _lbl; // button label
-     DTDelegate     _callback; // callback function delegate
+    uint16_t       _btn_color; // button color
+    uint16_t       _txt_color; // label textcolor
+    const GFXfont* _font; //
+    DTDelegate     _callback; // callback function delegate
 };
 
 #endif

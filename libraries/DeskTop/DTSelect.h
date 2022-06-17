@@ -77,7 +77,7 @@ class DTSelect : public DTControl
                                   TFT_RED, // set border colot to red - should not be visible in PROD
                               item_txt_cn, // normal text color
                                         f, // font
-                                        ""); // empty line as text
+                          (char*)nullptr); // empty line as text
           }
 
           _flags |= DTSELECT_FLAGS_INITIALRENDER; // let us know we have to run initial render code

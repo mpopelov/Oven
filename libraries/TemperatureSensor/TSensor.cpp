@@ -107,7 +107,6 @@ double TSensor::getProbeLinearized()
 
     // Step 3. Calculate the cold junction equivalent thermocouple voltage.
     // Coefficients and equations available from http://srdata.nist.gov/its90/download/type_k.tab
-    const double* c = nullptr;
     if(valAmbient >= 0){
         coeff_array = c_positive;
     } else{

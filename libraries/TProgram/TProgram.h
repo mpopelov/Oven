@@ -66,7 +66,7 @@ class TProgram
 {
     public:
      TProgram(int numSteps, String name)
-     : _name(name), _nSteps(numSteps), _timeElapsed(0), _timeElapsedStep(0), _timeLast(0), _totalDuration(0), _idx(0)
+     : _name(name), _timeElapsed(0), _timeElapsedStep(0), _timeLast(0), _totalDuration(0), _idx(0), _nSteps(numSteps)
      {
          if(_nSteps > 0)
             _steps = new TProgramStep[_nSteps];
@@ -76,7 +76,7 @@ class TProgram
 
      // copy constructor to create disconnected copy for active program to run
      TProgram(const TProgram& p)
-     : _name(p._name), _nSteps(p._nSteps), _timeElapsed(p._timeElapsed), _timeElapsedStep(p._timeElapsedStep), _timeLast(p._timeLast), _totalDuration(p._totalDuration), _idx(p._idx)
+     : _name(p._name), _timeElapsed(p._timeElapsed), _timeElapsedStep(p._timeElapsedStep), _timeLast(p._timeLast), _totalDuration(p._totalDuration), _idx(p._idx), _nSteps(p._nSteps)
      {
         // copy steps
         if(_nSteps > 0){

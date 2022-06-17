@@ -1,10 +1,10 @@
 #include "DTLabel.h"
 
-void DTLabel::SetText(const String& t)
+/*void DTLabel::SetText(const String& t)
 {
     _lbl = t;
     Invalidate(); // parent control is not invalidating - it's just us setting text
-}
+}*/
 
 void DTLabel::SetTextColor(uint16_t c)
 {
@@ -43,7 +43,7 @@ void DTLabel::Render(bool parentCleared)
         _gfx.setTextPadding(0);
 
         // draw string - note _x padding with 2 pixels to compensate for borders
-        _gfx.drawString(_lbl, _x+2, _y+(_h/2)-1);
+        _gfx.drawString(c_str(), _x+2, _y+(_h/2)-1);
         
         // remember to reset invalidation flags
         _flags &= ~DTCONTROL_FLAGS_INVALIDATED;

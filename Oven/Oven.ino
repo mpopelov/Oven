@@ -178,7 +178,7 @@ class cSplashScreenWindow : public DTWindow {
   cSplashScreenWindow(TFT_eSPI& gfx) :
   DTWindow(gfx, 0, 0, 320, 240, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND),
   pbrProgress( gfx, 20, 116, 280,  8, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED | DTPROGRESSBAR_BRDR_ON, DT_C_BACKGROUND, DT_C_GREY, DT_C_LIGHTGREEN ),
-    lblStatus( gfx, 10, 126, 300, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND,  DT_C_RED, DT_C_LIGHTGREEN, &FSN1, String())
+    lblStatus( gfx, 10, 126, 300, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND,  DT_C_RED, DT_C_LIGHTGREEN, &FSN1, (char*) nullptr)
   {
     AddControl(&pbrProgress);
     AddControl(&lblStatus);
@@ -304,15 +304,19 @@ class cMainWindow : public DTWindow {
           State.ActiveProgram = new TProgram(*Configuration.Programs[_pgmIdx]); // invoke copy constructor
 
           // set selected program details
-          lblProgramName.SetText(State.ActiveProgram->GetName());
+          /*lblProgramName.SetText(State.ActiveProgram->GetName());
           lblStepTotal.SetText(String(State.ActiveProgram->GetStepsTotal()));
-          lblStepNumber.SetText(String(State.ActiveProgram->GetStepsCurrent()));
+          lblStepNumber.SetText(String(State.ActiveProgram->GetStepsCurrent()));*/
+          lblProgramName = State.ActiveProgram->GetName();
+          lblStepTotal = String(State.ActiveProgram->GetStepsTotal());
+          lblStepNumber = String(State.ActiveProgram->GetStepsCurrent());
 
           // show initial duration of selected program
           char buff[12];
           unsigned long t = State.ActiveProgram->GetDurationTotal();
-          snprintf(buff, 12, "%02u:%02u:%02u", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
-          lblProgramTimeValue.SetText(String(buff));
+          snprintf(buff, 12, "%02lu:%02lu:%02lu", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
+          /*lblProgramTimeValue.SetText(String(buff));*/
+          lblProgramTimeValue = buff;
           // end of adjusting controls
         }
       }
@@ -338,7 +342,8 @@ class cMainWindow : public DTWindow {
       digitalWrite(D1, LOW);
       State.isPgmRunning = false;
       State.isRelayOn = false;
-      btnStart.SetText(FPSTR(BTN_START));
+      //btnStart.SetText(FPSTR(BTN_START));
+      btnStart = FPSTR(BTN_START);
       btnStart.SetBtnColor(DT_C_GREEN);
     }else{
       // program is not running - start active program and let PID controller decide on relay state.
@@ -347,7 +352,8 @@ class cMainWindow : public DTWindow {
         // so far just raise the flag and signal program handling code to do all necessary steps to update screen
         // and calculate setpoint and control action
         State.isPgmRunning = true;
-        btnStart.SetText(FPSTR(BTN_STOP));
+        //btnStart.SetText(FPSTR(BTN_STOP));
+        btnStart = FPSTR(BTN_STOP);
         btnStart.SetBtnColor(DT_C_RED);
       }
       // should there be some message to user about the need to select progam ?
@@ -508,7 +514,8 @@ void setup() {
 
   // prepare and show splash screen
   wSS.pbrProgress.SetProgress(1);
-  wSS.lblStatus.SetText(F("Starting controller..."));
+  // wSS.lblStatus.SetText(F("Starting controller..."));
+  wSS.lblStatus = F("Starting controller...");
   wSS.Render(false);
   
   pinMode(D1, OUTPUT);    // set relay pin mode to output
@@ -517,7 +524,8 @@ void setup() {
   wSS.pbrProgress.SetProgress(5);
 
   // 01. Initialize filesystem support
-  wSS.lblStatus.SetText(F("Init filesystem..."));
+  //wSS.lblStatus.SetText(F("Init filesystem..."));
+  wSS.lblStatus = F("Init filesystem...");
   wSS.Render(false);
 
   gi_FSConfig.setAutoFormat(false);
@@ -530,7 +538,8 @@ void setup() {
   wSS.pbrProgress.SetProgress(10);
 
   // 02. Try to read and parse configuration
-  wSS.lblStatus.SetText(F("Reading config..."));
+  //wSS.lblStatus.SetText(F("Reading config..."));
+  wSS.lblStatus = F("Reading config...");
   wSS.Render(false);
 
   // check if configuration file exists
@@ -730,7 +739,8 @@ void setup() {
   wSS.pbrProgress.SetProgress(50);
 
   // 03. Calibrate touch screen if necessary
-  wSS.lblStatus.SetText(F("Setting up touchscreen..."));
+  //wSS.lblStatus.SetText(F("Setting up touchscreen..."));
+  wSS.lblStatus = F("Setting up touchscreen...");
   wSS.Render(false);
 
   calDataOK = ( Configuration.TFT.data.tft[0] != 0 && Configuration.TFT.data.tft[1] != 0 && Configuration.TFT.data.tft[2] != 0);
@@ -742,14 +752,16 @@ void setup() {
 
     // set text color to red
     wSS.lblStatus.SetTextColor(DT_C_RED);
-    wSS.lblStatus.SetText(F("Touch screen corners as indicated"));
+    //wSS.lblStatus.SetText(F("Touch screen corners as indicated"));
+    wSS.lblStatus = F("Touch screen corners as indicated");
     wSS.Render(false);
 
     gi_Tft.calibrateTouch(Configuration.TFT.data.raw, DT_C_RED, DT_C_BACKGROUND, 20);
 
     // set text color to green
     wSS.lblStatus.SetTextColor(DT_C_GREEN);
-    wSS.lblStatus.SetText(F("Calibration complete!"));
+    //wSS.lblStatus.SetText(F("Calibration complete!"));
+    wSS.lblStatus = F("Calibration complete!");
     wSS.Render(false);
     // reset color to normal
     wSS.lblStatus.SetTextColor(DT_C_LIGHTGREEN);
@@ -767,7 +779,8 @@ void setup() {
   wSS.pbrProgress.SetProgress(70);
 
   // 0.4 Attempt to connect to WiFi (if can not - try to launch self in AP mode ?)
-  wSS.lblStatus.SetText( String(F("Connecting to WiFi ")) + Configuration.WiFi.KEY );
+  //wSS.lblStatus.SetText( String(F("Connecting to WiFi ")) + Configuration.WiFi.KEY );
+  (wSS.lblStatus = F("Connecting to WiFi ")) += Configuration.WiFi.SSID;
   wSS.Render(false);
 
   // if WiFi is not configured or not reachable - shall controller launch in AP mode ?
@@ -785,7 +798,8 @@ void setup() {
   wSS.pbrProgress.SetProgress(90);
 
   // 0.5 Start web server
-  wSS.lblStatus.SetText(F("Starting Web server"));
+  //wSS.lblStatus.SetText(F("Starting Web server"));
+  wSS.lblStatus = F("Starting Web server");
   wSS.Render(false);
 
   // attach event to web socket instance
@@ -804,7 +818,8 @@ void setup() {
   // finally start the server
   gi_WebServer.begin();
 
-  wSS.lblStatus.SetText(F("Done"));
+  //wSS.lblStatus.SetText(F("Done"));
+  wSS.lblStatus = F("Done");
   wSS.pbrProgress.SetProgress(100);
   wSS.Render(false);
   delay(1000);
@@ -855,19 +870,23 @@ void loop() {
     if (faultCode)                                  // Display error code if present
     {
       if (faultCode & 0b001) {
-        wnd.lblStatus.SetText(F("ERR: Sensor wire not connected"));
+        //wnd.lblStatus.SetText(F("ERR: Sensor wire not connected"));
+        wnd.lblStatus = F("ERR: Sensor wire not connected");
       }
       if (faultCode & 0b010) {
-        wnd.lblStatus.SetText(F("ERR: Sensor short-circuited to Ground (negative)"));
+        //wnd.lblStatus.SetText(F("ERR: Sensor short-circuited to Ground (negative)"));
+        wnd.lblStatus = F("ERR: Sensor short-circuited to Ground (negative)");
       }
       if (faultCode & 0b100) {
-        wnd.lblStatus.SetText(F("ERR: Sensor short-circuited to VCC (positive)"));
+        //wnd.lblStatus.SetText(F("ERR: Sensor short-circuited to VCC (positive)"));
+        wnd.lblStatus = F("ERR: Sensor short-circuited to VCC (positive)");
       }
     }
     else
     {
       //strStatus = String(F("Ambient temperature = ")) + String(ambientTemperature, 1) + " C";
-      strTempr = String(State.tProbe, 1) + FPSTR(LBL_DEGC);
+      //strTempr = String(State.tProbe, 1) += FPSTR(LBL_DEGC);
+      wnd.lblTempr = String(State.tProbe, 1) += FPSTR(LBL_DEGC);
     }
 
     // check if program has to be run (and only if active program is properly set)
@@ -896,20 +915,24 @@ void loop() {
         digitalWrite(D1, (State.U > 0.0 ? HIGH : LOW));
 
         // update labels' values
-        wnd.lblTemprTarget.SetText(String(State.tSP,2) + FPSTR(LBL_DEGC));
-        wnd.lblStepNumber.SetText(String(State.ActiveProgram->GetStepsCurrent()));
+        //wnd.lblTemprTarget.SetText(String(State.tSP,2) + FPSTR(LBL_DEGC));
+        //wnd.lblStepNumber.SetText(String(State.ActiveProgram->GetStepsCurrent()));
+        wnd.lblTemprTarget = String(State.tSP,2) += FPSTR(LBL_DEGC);
+        wnd.lblStepNumber = String(State.ActiveProgram->GetStepsCurrent());
 
         // update program remaining time
         unsigned long t = State.ActiveProgram->GetDurationTotal() - State.ActiveProgram->GetDurationElapsed();
-        snprintf(buff, BUFF_LEN, "%02u:%02u:%02u", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
-        wnd.lblProgramTimeValue.SetText(buff);
+        snprintf(buff, BUFF_LEN, "%02lu:%02lu:%02lu", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
+        //wnd.lblProgramTimeValue.SetText(buff);
+        wnd.lblProgramTimeValue = buff;
 
         // update step remaining time
         t = State.ActiveProgram->GetDurationElapsedStep();
-        snprintf(buff, BUFF_LEN, "%02u:%02u:%02u", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
-        wnd.lblStepTimeValue.SetText(buff);
+        snprintf(buff, BUFF_LEN, "%02lu:%02lu:%02lu", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
+        //wnd.lblStepTimeValue.SetText(buff);
+        wnd.lblStepTimeValue = buff;
 
-        strStatus = String(F("Control U = ")) + String(State.U,6);
+        strStatus = String(F("Control U = ")) += String(State.U,6);
       }
 
     }else{
@@ -930,7 +953,8 @@ void loop() {
         strStatus = F("Program has ended");
         // reset GUI button
         State.isRelayOn = false;
-        wnd.btnStart.SetText(FPSTR(BTN_START));
+        // wnd.btnStart.SetText(FPSTR(BTN_START));
+        wnd.btnStart = FPSTR(BTN_START);
         wnd.btnStart.SetBtnColor(DT_C_GREEN);
         wnd.Invalidate();
       }
@@ -942,12 +966,14 @@ void loop() {
     
     // update values on the screen
     
-    wnd.lblStatus.SetText(strStatus); // update status text at the bottom of the screen
-    wnd.lblTempr.SetText(strTempr); // update temperature value
+    //wnd.lblStatus.SetText(strStatus); // update status text at the bottom of the screen
+    wnd.lblStatus = strStatus;
+    //wnd.lblTempr.SetText(strTempr); // obsolete? temperature label updated after reading the sensor earlier in the code
+
 
     // Send update to all possible connected clients sending them the state
     if(gi_WebSocket.count()) {
-      StaticJsonDocument<2048> jDoc; // adjust capacity to something more appropriate for status JSON document
+      StaticJsonDocument<1024> jDoc; // adjust capacity to something more appropriate for status JSON document
       
       // add message id
       jDoc["id"] = "STS";

@@ -21,7 +21,7 @@ void DTButton::Render(bool parentCleared)
 
 
         // draw string - note _x padding with 2 pixels
-        _gfx.drawString(_lbl, _x + (_w/2) -1, _y + (_h/2) -1);
+        _gfx.drawString(c_str(), _x + (_w/2) -1, _y + (_h/2) -1);
         // remember to reset invalidation flags
         _flags &= ~DTCONTROL_FLAGS_INVALIDATED;
     }
@@ -40,12 +40,6 @@ bool DTButton::HandleEvent(uint16_t x, uint16_t y, bool pressed)
         return true;
     }
     return false;
-}
-
-void DTButton::SetText(const String& t)
-{
-    _lbl = t;
-    Invalidate();
 }
 
 void DTButton::SetBtnColor(uint16_t c)
