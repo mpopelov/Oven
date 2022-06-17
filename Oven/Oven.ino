@@ -500,7 +500,6 @@ void onWSEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 void setup() {
   uint8_t calDataOK = 0;            // calibration data reding status
   cSplashScreenWindow wSS{gi_Tft};  // splash screen window
-  StaticJsonDocument<4096> JDoc;
 
   // initialize screen
   gi_Tft.init();
@@ -546,6 +545,7 @@ void setup() {
     if (f) {
 
       // try deserializing from JSON config file
+      StaticJsonDocument<4096> JDoc;
       DeserializationError err = deserializeJson(JDoc, f);
       delay(100);
 
