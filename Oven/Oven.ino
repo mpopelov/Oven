@@ -540,10 +540,38 @@ void setup() {
     File f = LittleFS.open(FPSTR(FILE_CONFIGURATION), "r");
 
     if (f) {
-
       // try deserializing from JSON config file
       //StaticJsonDocument<4096> JDoc;
       DynamicJsonDocument JDoc{4096};
+
+      //TODO???:
+      // rewrite procedure to reduce memory overhead - possibly using smaller static JsonDocument on stack
+      // use technique from ArduinoJson - deserialize one by one:
+      /*f.find("{");
+      do{
+        DeserializationError err = deserializeJson(JDoc, f);
+        if(!err){
+          // check what was parsed - get object or array at top level
+          // objects: TFT, WiFi, PID
+          // array "Programs"
+          if(JsonObject obj = JDoc.as<JsonObject>()){
+            // parse one of objects
+          }
+          if(JsonArray arr = JDoc.as<JsonArray>()){
+            // parse "Programs" array
+          }
+        }
+      }while(f.findUntil(",","}"));*/
+
+
+
+
+
+
+
+
+
+
       DeserializationError err = deserializeJson(JDoc, f);
 
       // parese JSON if it was deserialized successfully
