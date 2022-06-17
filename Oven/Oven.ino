@@ -510,7 +510,6 @@ void setup() {
   wSS.pbrProgress.SetProgress(1);
   wSS.lblStatus.SetText(F("Starting controller..."));
   wSS.Render(false);
-  delay(100);
   
   pinMode(D1, OUTPUT);    // set relay pin mode to output
   digitalWrite(D1, LOW);  // turn relay off
@@ -520,7 +519,6 @@ void setup() {
   // 01. Initialize filesystem support
   wSS.lblStatus.SetText(F("Init filesystem..."));
   wSS.Render(false);
-  delay(100);
 
   gi_FSConfig.setAutoFormat(false);
   LittleFS.setConfig(gi_FSConfig);
@@ -534,7 +532,6 @@ void setup() {
   // 02. Try to read and parse configuration
   wSS.lblStatus.SetText(F("Reading config..."));
   wSS.Render(false);
-  delay(100);
 
   // check if configuration file exists
   // if it does - read JSON and fill in configuration structure
@@ -545,9 +542,9 @@ void setup() {
     if (f) {
 
       // try deserializing from JSON config file
-      StaticJsonDocument<4096> JDoc;
+      //StaticJsonDocument<4096> JDoc;
+      DynamicJsonDocument JDoc{4096};
       DeserializationError err = deserializeJson(JDoc, f);
-      delay(100);
 
       // parese JSON if it was deserialized successfully
       if(!err){
@@ -566,7 +563,6 @@ void setup() {
             } // else - leave calibration data as 0
           }
         }
-        delay(100);
         
         // b. read WiFi parameters
         if( JsonObject obj = JDoc[FPSTR(JSCONF_WIFI)] ){
@@ -574,7 +570,6 @@ void setup() {
           Configuration.WiFi.SSID = obj[FPSTR(JSCONF_WIFI_SSID)].as<String>();
           Configuration.WiFi.KEY = obj[FPSTR(JSCONF_WIFI_KEY)].as<String>();
         }
-        delay(100);
 
         // c. read PID parameters
         if( JsonObject obj = JDoc[FPSTR(JSCONF_PID)] ){
@@ -584,7 +579,6 @@ void setup() {
           Configuration.PID.KI = obj[FPSTR(JSCONF_PID_KI)] | 1.0;
           Configuration.PID.KD = obj[FPSTR(JSCONF_PID_KD)] | 1.0;
         }
-        delay(100);
 
         // d. read programs
         if( JsonArray parr = JDoc[FPSTR(JSCONF_PROGRAMS)] ){
@@ -623,7 +617,6 @@ void setup() {
                   p->Reset(); // reset program to ready state
                   Configuration.Programs[i] = p; // add it to an array of programs
                 }
-                delay(100);
 
                 // at this pont Configuration.Programs[i] is either nullptr or a valid object
               }
@@ -711,7 +704,6 @@ void setup() {
   // 03. Calibrate touch screen if necessary
   wSS.lblStatus.SetText(F("Setting up touchscreen..."));
   wSS.Render(false);
-  delay(100);
 
   calDataOK = ( Configuration.TFT.data.tft[0] != 0 && Configuration.TFT.data.tft[1] != 0 && Configuration.TFT.data.tft[2] != 0);
   if (calDataOK) {
@@ -731,7 +723,6 @@ void setup() {
     wSS.lblStatus.SetTextColor(DT_C_GREEN);
     wSS.lblStatus.SetText(F("Calibration complete!"));
     wSS.Render(false);
-    delay(100);
     // reset color to normal
     wSS.lblStatus.SetTextColor(DT_C_LIGHTGREEN);
 
@@ -750,34 +741,24 @@ void setup() {
   // 0.4 Attempt to connect to WiFi (if can not - try to launch self in AP mode ?)
   wSS.lblStatus.SetText( String(F("Connecting to WiFi ")) + Configuration.WiFi.KEY );
   wSS.Render(false);
-  delay(100);
 
   // if WiFi is not configured or not reachable - shall controller launch in AP mode ?
   WiFi.mode(WIFI_STA);
   WiFi.begin(Configuration.WiFi.SSID, Configuration.WiFi.KEY);
-  delay(100);
   
-  for(int i=0; i < 10; i++){
+  for(int i=0; i < 20; i++){
     if (WiFi.status() == WL_CONNECTED) break;
 
     wSS.pbrProgress.SetProgress( 70 + i);
-    wSS.lblStatus.SetText( String(F("Free heap: ")) + String(ESP.getFreeHeap()) );
     wSS.Render(false);
     delay(500);
   }
-
-  /*// alternative way:
-  if( WiFi.waitForConnectResult(10000) != WL_CONNECTED){
-    // log error or say something
-  }*/
   
-
   wSS.pbrProgress.SetProgress(90);
 
   // 0.5 Start web server
   wSS.lblStatus.SetText(F("Starting Web server"));
   wSS.Render(false);
-  delay(100);
 
   // attach event to web socket instance
   gi_WebSocket.onEvent(onWSEvent);
@@ -798,7 +779,7 @@ void setup() {
   wSS.lblStatus.SetText(F("Done"));
   wSS.pbrProgress.SetProgress(100);
   wSS.Render(false);
-  delay(100);
+  delay(1000);
 
   // 0.6 no more initialization screen updates - invalidate and render main window
   wnd.Invalidate();
