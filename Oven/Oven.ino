@@ -825,10 +825,6 @@ void setup() {
   wnd.Render(false);
 }
 
-// todo - get rid of these
-//String strStatus = String();
-//String strTempr = String();
-
 #define BUFF_LEN 32
 
 /**
@@ -877,7 +873,7 @@ void loop() {
     }
     else
     {
-      wnd.lblTempr = String(State.tProbe, 1) += FPSTR(LBL_DEGC);
+      (wnd.lblTempr = String(State.tProbe, 1)) += FPSTR(LBL_DEGC);
     }
 
     // check if program has to be run (and only if active program is properly set)
@@ -919,7 +915,7 @@ void loop() {
         snprintf(buff, BUFF_LEN, "%02lu:%02lu:%02lu", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
         wnd.lblStepTimeValue = buff;
 
-        (wnd.lblStatus = String(F("Control U = "))) += String(State.U,6);
+        (wnd.lblStatus = F("Control U = ")) += String(State.U,6);
       }
 
     }else{
