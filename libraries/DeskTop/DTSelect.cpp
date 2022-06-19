@@ -65,7 +65,6 @@ void DTSelect::MoveNext()
             // 1) starting with the last visible label and all way top
             DTSelectItem* itm = _items_current;
             for(int i=_lbl_cur_idx; i>=0 && itm != nullptr; i--){
-                //_lbls[i]->SetText(itm->text);
                 *(_lbls[i]) = itm->text;
                 _lbls[i]->SetBackColor(i==_lbl_cur_idx ? _i_bkg_cs : _i_bkg_cn);
                 _lbls[i]->SetTextColor(i==_lbl_cur_idx ? _i_txt_cs : _i_txt_cn);
@@ -108,7 +107,6 @@ void DTSelect::MovePrev()
             // 1) starting with the first visible label and all way bottom
             DTSelectItem* itm = _items_current;
             for(int i=0; i<_lbl_max && itm != nullptr; i++){
-                //_lbls[i]->SetText(itm->text);
                 *(_lbls[i]) = itm->text;
                 _lbls[i]->SetBackColor(i==_lbl_cur_idx ? _i_bkg_cs : _i_bkg_cn);
                 _lbls[i]->SetTextColor(i==_lbl_cur_idx ? _i_txt_cs : _i_txt_cn);
@@ -150,7 +148,6 @@ void DTSelect::Render(bool parentCleared)
         // populate labels with data starting with current item - normally should be the same as the very first item on the list
         DTSelectItem* itm = _items_current;
         for(int i=0; i<_lbl_max && itm != nullptr; i++, itm = itm->next){
-            //_lbls[i]->SetText(itm->text);
             *(_lbls[i]) = itm->text;
 
             // set text and background color

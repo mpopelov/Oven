@@ -1,11 +1,5 @@
 #include "DTLabel.h"
 
-/*void DTLabel::SetText(const String& t)
-{
-    _lbl = t;
-    Invalidate(); // parent control is not invalidating - it's just us setting text
-}*/
-
 void DTLabel::SetTextColor(uint16_t c)
 {
     _lbl_color = c;

@@ -180,6 +180,7 @@ class cSplashScreenWindow : public DTWindow {
   pbrProgress( gfx, 20, 116, 280,  8, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED | DTPROGRESSBAR_BRDR_ON, DT_C_BACKGROUND, DT_C_GREY, DT_C_LIGHTGREEN ),
     lblStatus( gfx, 10, 126, 300, 25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND,  DT_C_RED, DT_C_LIGHTGREEN, &FSN1, (char*) nullptr)
   {
+    lblStatus.reserve(32); // pre-allocate some space in order to avoid extra memory allocation for underlying string
     AddControl(&pbrProgress);
     AddControl(&lblStatus);
   }
@@ -268,6 +269,15 @@ class cMainWindow : public DTWindow {
   // status label - Y offset 210
             lblStatus( gfx,   0, 210, 320,  30, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, F("Initializing..."))
   {
+    // Pre-allocate some space for labels that will have changing content
+    // and their content is bigger than SSO buffer of String class.
+    // Static text labels are ok as they are going to remain as is and most often fit into SSO buffer.
+    // buttons should be ok with SSO built into String class on ESP8266
+
+    lblProgramName.reserve(32);
+    lblStepNumber.reserve(12);
+    lblStatus.reserve(64);
+
     // Add controls to handling stack
     AddControl(&lblProgram);
     AddControl(&lblProgramName);
@@ -304,9 +314,6 @@ class cMainWindow : public DTWindow {
           State.ActiveProgram = new TProgram(*Configuration.Programs[_pgmIdx]); // invoke copy constructor
 
           // set selected program details
-          /*lblProgramName.SetText(State.ActiveProgram->GetName());
-          lblStepTotal.SetText(String(State.ActiveProgram->GetStepsTotal()));
-          lblStepNumber.SetText(String(State.ActiveProgram->GetStepsCurrent()));*/
           lblProgramName = State.ActiveProgram->GetName();
           lblStepTotal = String(State.ActiveProgram->GetStepsTotal());
           lblStepNumber = String(State.ActiveProgram->GetStepsCurrent());
@@ -315,7 +322,6 @@ class cMainWindow : public DTWindow {
           char buff[12];
           unsigned long t = State.ActiveProgram->GetDurationTotal();
           snprintf(buff, 12, "%02lu:%02lu:%02lu", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
-          /*lblProgramTimeValue.SetText(String(buff));*/
           lblProgramTimeValue = buff;
           // end of adjusting controls
         }
@@ -342,7 +348,6 @@ class cMainWindow : public DTWindow {
       digitalWrite(D1, LOW);
       State.isPgmRunning = false;
       State.isRelayOn = false;
-      //btnStart.SetText(FPSTR(BTN_START));
       btnStart = FPSTR(BTN_START);
       btnStart.SetBtnColor(DT_C_GREEN);
     }else{
@@ -352,7 +357,6 @@ class cMainWindow : public DTWindow {
         // so far just raise the flag and signal program handling code to do all necessary steps to update screen
         // and calculate setpoint and control action
         State.isPgmRunning = true;
-        //btnStart.SetText(FPSTR(BTN_STOP));
         btnStart = FPSTR(BTN_STOP);
         btnStart.SetBtnColor(DT_C_RED);
       }
@@ -514,7 +518,6 @@ void setup() {
 
   // prepare and show splash screen
   wSS.pbrProgress.SetProgress(1);
-  // wSS.lblStatus.SetText(F("Starting controller..."));
   wSS.lblStatus = F("Starting controller...");
   wSS.Render(false);
   
@@ -524,7 +527,6 @@ void setup() {
   wSS.pbrProgress.SetProgress(5);
 
   // 01. Initialize filesystem support
-  //wSS.lblStatus.SetText(F("Init filesystem..."));
   wSS.lblStatus = F("Init filesystem...");
   wSS.Render(false);
 
@@ -538,7 +540,6 @@ void setup() {
   wSS.pbrProgress.SetProgress(10);
 
   // 02. Try to read and parse configuration
-  //wSS.lblStatus.SetText(F("Reading config..."));
   wSS.lblStatus = F("Reading config...");
   wSS.Render(false);
 
@@ -739,7 +740,6 @@ void setup() {
   wSS.pbrProgress.SetProgress(50);
 
   // 03. Calibrate touch screen if necessary
-  //wSS.lblStatus.SetText(F("Setting up touchscreen..."));
   wSS.lblStatus = F("Setting up touchscreen...");
   wSS.Render(false);
 
@@ -752,7 +752,6 @@ void setup() {
 
     // set text color to red
     wSS.lblStatus.SetTextColor(DT_C_RED);
-    //wSS.lblStatus.SetText(F("Touch screen corners as indicated"));
     wSS.lblStatus = F("Touch screen corners as indicated");
     wSS.Render(false);
 
@@ -760,7 +759,6 @@ void setup() {
 
     // set text color to green
     wSS.lblStatus.SetTextColor(DT_C_GREEN);
-    //wSS.lblStatus.SetText(F("Calibration complete!"));
     wSS.lblStatus = F("Calibration complete!");
     wSS.Render(false);
     // reset color to normal
@@ -779,7 +777,6 @@ void setup() {
   wSS.pbrProgress.SetProgress(70);
 
   // 0.4 Attempt to connect to WiFi (if can not - try to launch self in AP mode ?)
-  //wSS.lblStatus.SetText( String(F("Connecting to WiFi ")) + Configuration.WiFi.KEY );
   (wSS.lblStatus = F("Connecting to WiFi ")) += Configuration.WiFi.SSID;
   wSS.Render(false);
 
@@ -798,7 +795,6 @@ void setup() {
   wSS.pbrProgress.SetProgress(90);
 
   // 0.5 Start web server
-  //wSS.lblStatus.SetText(F("Starting Web server"));
   wSS.lblStatus = F("Starting Web server");
   wSS.Render(false);
 
@@ -807,7 +803,7 @@ void setup() {
   gi_WebServer.addHandler(&gi_WebSocket);
 
   // TEMP: add hello hook to root - remove after testing
-  gi_WebServer.on(FILE_WEB_ROOT, [](AsyncWebServerRequest *request) { request->send(200, FPSTR(FILE_WEB_CT_TXT), F("Hello async from controller")); });
+  //gi_WebServer.on(FILE_WEB_ROOT, [](AsyncWebServerRequest *request) { request->send(200, FPSTR(FILE_WEB_CT_TXT), F("Hello async from controller")); });
   // TEMP? add hook to /heap path - show free heap for monitoring purposes
   gi_WebServer.on(FILE_WEB_HEAP, HTTP_GET, [](AsyncWebServerRequest *request){ request->send(200, FPSTR(FILE_WEB_CT_TXT), F("Free heap: ") + String(ESP.getFreeHeap())); });
   // serve files from filesystem with default being index.html
@@ -830,8 +826,8 @@ void setup() {
 }
 
 // todo - get rid of these
-String strStatus = String();
-String strTempr = String();
+//String strStatus = String();
+//String strTempr = String();
 
 #define BUFF_LEN 32
 
@@ -870,22 +866,17 @@ void loop() {
     if (faultCode)                                  // Display error code if present
     {
       if (faultCode & 0b001) {
-        //wnd.lblStatus.SetText(F("ERR: Sensor wire not connected"));
         wnd.lblStatus = F("ERR: Sensor wire not connected");
       }
       if (faultCode & 0b010) {
-        //wnd.lblStatus.SetText(F("ERR: Sensor short-circuited to Ground (negative)"));
         wnd.lblStatus = F("ERR: Sensor short-circuited to Ground (negative)");
       }
       if (faultCode & 0b100) {
-        //wnd.lblStatus.SetText(F("ERR: Sensor short-circuited to VCC (positive)"));
         wnd.lblStatus = F("ERR: Sensor short-circuited to VCC (positive)");
       }
     }
     else
     {
-      //strStatus = String(F("Ambient temperature = ")) + String(ambientTemperature, 1) + " C";
-      //strTempr = String(State.tProbe, 1) += FPSTR(LBL_DEGC);
       wnd.lblTempr = String(State.tProbe, 1) += FPSTR(LBL_DEGC);
     }
 
@@ -908,31 +899,27 @@ void loop() {
       if(isnan(State.tSP)){
         // meaning an error or reached the end of the program
         State.isPgmRunning = false;
-        strStatus = F("Program terminating...");
+        wnd.lblStatus = F("Program terminating...");
       }else{
         // do common staff - calculate controlling signal and turn relay on/off accordingly
         State.U = gp_PID->Evaluate(State.tSP, State.tProbe, State.U);
         digitalWrite(D1, (State.U > 0.0 ? HIGH : LOW));
 
         // update labels' values
-        //wnd.lblTemprTarget.SetText(String(State.tSP,2) + FPSTR(LBL_DEGC));
-        //wnd.lblStepNumber.SetText(String(State.ActiveProgram->GetStepsCurrent()));
-        wnd.lblTemprTarget = String(State.tSP,2) += FPSTR(LBL_DEGC);
+        (wnd.lblTemprTarget = String(State.tSP,2)) += FPSTR(LBL_DEGC);
         wnd.lblStepNumber = String(State.ActiveProgram->GetStepsCurrent());
 
         // update program remaining time
         unsigned long t = State.ActiveProgram->GetDurationTotal() - State.ActiveProgram->GetDurationElapsed();
         snprintf(buff, BUFF_LEN, "%02lu:%02lu:%02lu", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
-        //wnd.lblProgramTimeValue.SetText(buff);
         wnd.lblProgramTimeValue = buff;
 
         // update step remaining time
         t = State.ActiveProgram->GetDurationElapsedStep();
         snprintf(buff, BUFF_LEN, "%02lu:%02lu:%02lu", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
-        //wnd.lblStepTimeValue.SetText(buff);
         wnd.lblStepTimeValue = buff;
 
-        strStatus = String(F("Control U = ")) += String(State.U,6);
+        (wnd.lblStatus = String(F("Control U = "))) += String(State.U,6);
       }
 
     }else{
@@ -950,7 +937,7 @@ void loop() {
         State.U = 0.0; // reset controlling signal
         State.hasPgmStarted = false;
         wnd.lblTemprTarget.Visible(false);
-        strStatus = F("Program has ended");
+        wnd.lblStatus = F("Program has ended");
         // reset GUI button
         State.isRelayOn = false;
         // wnd.btnStart.SetText(FPSTR(BTN_START));
@@ -960,17 +947,10 @@ void loop() {
       }
     }
 
-    // temp - show ip address in the status bar
-    strStatus = F("IP address: ");
-    strStatus += WiFi.localIP().toString();
+    // temp? - show ip address in the status bar
+    // find some other solution in order to let user know where to connect
+    (wnd.lblStatus = F("IP address: ")) += WiFi.localIP().toString();
     
-    // update values on the screen
-    
-    //wnd.lblStatus.SetText(strStatus); // update status text at the bottom of the screen
-    wnd.lblStatus = strStatus;
-    //wnd.lblTempr.SetText(strTempr); // obsolete? temperature label updated after reading the sensor earlier in the code
-
-
     // Send update to all possible connected clients sending them the state
     if(gi_WebSocket.count()) {
       StaticJsonDocument<1024> jDoc; // adjust capacity to something more appropriate for status JSON document
@@ -986,7 +966,7 @@ void loop() {
       joStatus["U"] = State.U;
       joStatus["isRunning"] = State.isPgmRunning;
       joStatus["isRelayOn"] = State.isRelayOn;
-      joStatus["stsText"] = strStatus;
+      joStatus["stsText"] = wnd.lblStatus.c_str(); // should be safe as serialize is called shortly
 
       // relevant information about active program
       if(State.ActiveProgram != nullptr){
@@ -1027,4 +1007,9 @@ void loop() {
 
   // and finally redraw screen if needed
   wnd.Render(false);
+
+  // WebSocket message processing
+  // should happen without any timer checks so that we are making responses available for async handler asap
+  // should be last in a chain
+
 }

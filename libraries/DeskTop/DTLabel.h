@@ -38,9 +38,6 @@ class DTLabel : public DTControl, public String
     _bkg_color(bkgc), _brd_color(brdc), _lbl_color(lblc), _font(f)
     {}
 
-     // change label text
-     //void SetText(const String& t);
-
      template <class T>
      String& operator=(T arg) { Invalidate(); return String::operator=(arg); }
 
