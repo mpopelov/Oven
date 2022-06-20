@@ -1,3 +1,6 @@
+// example messages
+
+// status message example
 {
     "id" : "STS",
     "status" : {
@@ -25,3 +28,9 @@
         }
     }
 }
+
+// error message Busy example
+{"id":"ERR","details":"Busy"}
+
+// error message No memory example
+{"id":"ERR","details":"No memory"}

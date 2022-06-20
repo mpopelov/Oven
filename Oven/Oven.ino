@@ -150,6 +150,23 @@ struct _sState {
 } State;
 
 /**
+ * @brief TEMP! structure to handle incoming messages
+ * @details Structure holds all the information relevant to process request and prepare response
+ *          over WebSocket.
+ *          isValid field is used to mark message valid for processing in the main loop
+ *          only WebSocket event handler is allowed to set this flag to true.
+ *          only main loop is allowed to reset this flag to false
+ *          flag is set volatile in order to prevent optimization/caching across different threads
+ * 
+ */
+struct _sWsJSONMsg {
+  volatile bool isValid = false; // mark volatile to make sure it is read explicitly upon access as structure can be accessed from another thread
+  uint32_t      client_id = 0; // requesting client Id
+  size_t        datalen = 0;
+  char*         buffer = nullptr;
+} gi_WsJSONMsg;
+
+/**
  * Global instances
  */
 TFT_eSPI          gi_Tft{};              // TFT display driver
@@ -439,7 +456,9 @@ void onWSEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
   //Handle WebSocket event
   switch(type){
     case WS_EVT_CONNECT:
-      // new client connected
+      // new client connected  -send ping just in case to say we are alive
+      client->ping();
+      break;
     case WS_EVT_DISCONNECT:
       // client disconnected
     case WS_EVT_PONG:
@@ -455,48 +474,40 @@ void onWSEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
       // discard any non-text (binary) data
       if(info->opcode != WS_TEXT) break;
 
-      // proceed with text data
-      String msg = "";
-      if(info->final && info->index == 0 && info->len == len){
-        //the whole message is in a single frame and we got all of it's data
-        //Serial.printf("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT)?"text":"binary", info->len);
+      // drop the message if length is 0
+      if(info->len == 0) break;
 
-        // build text data
-        for(size_t i=0; i < info->len; i++) {
-          msg += (char) data[i];
-        }
-        // process it
-        // Serial.printf("%s\n",msg.c_str());
-        //send response
-        client->text("I got your text message");
-        // done handling the whole message
-      } else {
-        //message is comprised of multiple frames or the frame is split into multiple packets
-        if(info->index == 0){
-          //if(info->num == 0) Serial.printf("ws[%s][%u] %s-message start\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
-          //Serial.printf("ws[%s][%u] frame[%u] start[%llu]\n", server->url(), client->id(), info->num, info->len);
-        }
-
-        //Serial.printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: ", server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT)?"text":"binary", info->index, info->index + len);
-
-        for(size_t i=0; i < len; i++) {
-          msg += (char) data[i];
-        }
-        //Serial.printf("%s\n",msg.c_str());
-
-        if((info->index + len) == info->len){
-          //Serial.printf("ws[%s][%u] frame[%u] end[%llu]\n", server->url(), client->id(), info->num, info->len);
-          if(info->final){
-            //Serial.printf("ws[%s][%u] %s-message end\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
-            // handle text message
-            client->text("I got your text message");
-          }
-        }
+      // reply "Busy" to client if message buffer is currently occupied with other mesage to process
+      // i.e. isValid set to true
+      if(gi_WsJSONMsg.isValid){
+        // send response
+        client->printf("{\"id\":\"ERR\",\"details\":\"Busy\"}");
+        break;
       }
+
+      // TODO: handle fragmented messages
+
+      // try to allocate memory
+      gi_WsJSONMsg.buffer = (char *) malloc(info->len + 1); // account for 0 character in the end
+      if(!gi_WsJSONMsg.buffer){
+        // no memory is available
+        gi_WsJSONMsg.buffer = nullptr;
+        client->printf("{\"id\":\"ERR\",\"details\":\"No memory\"}");
+        break;
+      }
+
+      // copy data to message buffer. WARNIG - so far unfragmented messages are expected - add code to handle fragments and collect them into the whole message
+      memcpy(gi_WsJSONMsg.buffer, data, info->len);
+      gi_WsJSONMsg.buffer[info->len] = 0; // add 0 terminating character
+
+      // message is in the buffer - add client information and toggle validity flag
+      gi_WsJSONMsg.datalen = info->len;
+      gi_WsJSONMsg.client_id = client->id();
+      gi_WsJSONMsg.isValid = true;
+      break;
     } // done handling WS_EVT_DATA
-  }
-  // done handling WebSocket event
-}
+  } // end of switch(type): done handling WebSocket event
+} // end of onWSEvent(...)
 
 /**
  * @brief Initialization routine
@@ -551,37 +562,9 @@ void setup() {
 
     if (f) {
       // try deserializing from JSON config file
-      //StaticJsonDocument<4096> JDoc;
-      DynamicJsonDocument JDoc{4096};
-
-      //TODO???:
-      // rewrite procedure to reduce memory overhead - possibly using smaller static JsonDocument on stack
-      // use technique from ArduinoJson - deserialize one by one:
-      /*f.find("{");
-      do{
-        DeserializationError err = deserializeJson(JDoc, f);
-        if(!err){
-          // check what was parsed - get object or array at top level
-          // objects: TFT, WiFi, PID
-          // array "Programs"
-          if(JsonObject obj = JDoc.as<JsonObject>()){
-            // parse one of objects
-          }
-          if(JsonArray arr = JDoc.as<JsonArray>()){
-            // parse "Programs" array
-          }
-        }
-      }while(f.findUntil(",","}"));*/
-
-
-
-
-
-
-
-
-
-
+      
+      // try to book an object of as many bytes as configuration file is
+      DynamicJsonDocument JDoc{f.size()};
       DeserializationError err = deserializeJson(JDoc, f);
 
       // parese JSON if it was deserialized successfully
@@ -663,7 +646,7 @@ void setup() {
           }
 
         }else{
-          // TODO: add sample programs? (just in case)
+          // TODO: add sample programs? (just in case) - remove otherwise
           /*
           * Sample programs to add and run on oven:
           *
@@ -823,7 +806,7 @@ void setup() {
   // 0.6 no more initialization screen updates - invalidate and render main window
   wnd.Invalidate();
   wnd.Render(false);
-}
+} // end of setup()
 
 #define BUFF_LEN 32
 
@@ -845,8 +828,7 @@ void loop() {
   if ( (ticks - State.ticks_TS >= Configuration.TFT.poll) && gi_Tft.getTouch(&x, &y) )
   {
     wnd.HandleEvent(x,y, true);
-    // finally save timer value
-    State.ticks_TS = ticks;
+    State.ticks_TS = ticks; // save current timer value for next loop
   }
 
   // now the main functionality
@@ -862,13 +844,13 @@ void loop() {
     if (faultCode)                                  // Display error code if present
     {
       if (faultCode & 0b001) {
-        wnd.lblStatus = F("ERR: Sensor wire not connected");
+        wnd.lblStatus = F("ERR: Sensor not connected");
       }
       if (faultCode & 0b010) {
-        wnd.lblStatus = F("ERR: Sensor short-circuited to Ground (negative)");
+        wnd.lblStatus = F("ERR: Sensor s-c to GND(-)");
       }
       if (faultCode & 0b100) {
-        wnd.lblStatus = F("ERR: Sensor short-circuited to VCC (positive)");
+        wnd.lblStatus = F("ERR: Sensor s-c to VCC(+)");
       }
     }
     else
@@ -882,7 +864,6 @@ void loop() {
       if(State.hasPgmStarted){
         // do the normal routine
         State.tSP = State.ActiveProgram->CalculateSetPoint();
-
       }else{
         // this is the initial step in the program
         gp_PID = new PIDControl( 1, 1, 1, Configuration.PID.poll);
@@ -936,7 +917,6 @@ void loop() {
         wnd.lblStatus = F("Program has ended");
         // reset GUI button
         State.isRelayOn = false;
-        // wnd.btnStart.SetText(FPSTR(BTN_START));
         wnd.btnStart = FPSTR(BTN_START);
         wnd.btnStart.SetBtnColor(DT_C_GREEN);
         wnd.Invalidate();
@@ -1006,6 +986,44 @@ void loop() {
 
   // WebSocket message processing
   // should happen without any timer checks so that we are making responses available for async handler asap
-  // should be last in a chain
+  // should be last in a chain of actions in the main loop
+  if(gi_WsJSONMsg.isValid){
+    // read message in case data available is > 0
+    if( gi_WsJSONMsg.datalen > 0 ){
+      // create an object - same as data length
+      DynamicJsonDocument jDocInc{gi_WsJSONMsg.datalen};
 
-}
+      // create outgoing JSON object
+      DynamicJsonDocument jDocOut{1024}; // ??? appropriate size - especially for configuration file
+
+      // form a reply - so far just a "Not implemented"
+      jDocOut["id"] = "ERR";
+      jDocOut["details"] = "Not implemented";
+
+
+      // send out reply
+      AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+      // make sure client is still valid and can be communicated to
+      if( wsc != nullptr ){
+        size_t jdLenOut = measureJson(jDocOut);
+        AsyncWebSocketMessageBuffer * buffer = gi_WebSocket.makeBuffer(jdLenOut);
+        if(buffer){
+          serializeJson(jDocOut, buffer->get(), jdLenOut + 1);
+          wsc->text(buffer);
+        }
+      }
+    }
+
+    // so far drop incoming message silently if it was malformed
+
+    // reset message buffer to accomodate new message
+    if(gi_WsJSONMsg.buffer != nullptr){
+      free(gi_WsJSONMsg.buffer); // do it earlier maybe to make memory available for outgoing JSON message ?
+      gi_WsJSONMsg.buffer = nullptr;
+    }
+    gi_WsJSONMsg.datalen = 0;
+    gi_WsJSONMsg.client_id = 0;
+    gi_WsJSONMsg.isValid = false; // mark as available for accomodating new message after all cleanup activities that may take time
+  } // done handling incoming message
+
+} // end of loop()
