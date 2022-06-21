@@ -1000,25 +1000,27 @@ void loop() {
 
       if(!err){
 
+        const char* cmd = jDocInc["id"];
+
         // parse JSON command and prepare reply
-        if( JsonObject obj = jDocInc["start"] ){
+        if(!strcmp("start",cmd)){
           // "start" command received - toggle start and send reply
           State.StartStop = true;
           AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
-          if(wsc != nullptr) wsc->printf("{\"id\":\"ERR\",\"details\":\"Start signal sent\"}");
+          if(wsc != nullptr) wsc->printf("{\"id\":\"OK\",\"details\":\"Start signal sent\"}");
 
-        }else if( JsonObject obj = jDocInc["stop"] ){
+        }else if(!strcmp("stop",cmd)){
           // "stop" command received - toggle stop and send reply
           State.StartStop = false;
           AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
-          if(wsc != nullptr) wsc->printf("{\"id\":\"ERR\",\"details\":\"Stop signal sent\"}");
+          if(wsc != nullptr) wsc->printf("{\"id\":\"OK\",\"details\":\"Stop signal sent\"}");
 
-        }else if( JsonObject obj = jDocInc["cfgWR"] ){
+        }else if(!strcmp("cfgWR",cmd)){
           // configuration submitted from web interface - try building and saving configuration
           AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
           if(wsc != nullptr) wsc->printf("{\"id\":\"ERR\",\"details\":\"Not implemented\"}");
 
-        }else if( JsonObject obj = jDocInc["cfgRD"] ){
+        }else if(!strcmp("cfgRD",cmd)){
           // configuration requested - build JSON and send back to client
           //
           // NB! when "String" values are added to JsonObject/Array - use c_str() (i.e. const char*) to prevent ArduinoJson from copying those.
