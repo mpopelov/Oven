@@ -30,13 +30,13 @@ void DTButton::Render(bool parentCleared)
 
 bool DTButton::HandleEvent(uint16_t x, uint16_t y, bool pressed)
 {
+    // do not process events if not visible (user should not have clicked it)
+    if( !(_flags & DTCONTROL_FLAGS_VISIBLE) ) return false;
+
     if( (x >= _x) && (y >= _y) && (x <= _x + _w) && (y <= _y + _h) )
     {
         // trigger call-back function
         _callback();
-
-        // invalidate the control so it is redrawn correctly
-        Invalidate();
         return true;
     }
     return false;

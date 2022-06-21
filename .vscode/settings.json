@@ -10,6 +10,9 @@
         "istream": "cpp",
         "ostream": "cpp",
         "sstream": "cpp",
-        "regex": "cpp"
+        "regex": "cpp",
+        "compare": "cpp",
+        "tuple": "cpp",
+        "utility": "cpp"
     }
 }

@@ -115,9 +115,9 @@ struct _sConfiguration {
 
   struct _sPID {
     unsigned long poll = 1000;               // only measure temperature that often (in ms)
-    double KP = NAN;
-    double KI = NAN;
-    double KD = NAN;
+    double KP = 1.0;
+    double KI = 1.0;
+    double KD = 1.0;
   } PID;
 
   int nPrograms = 0;
@@ -143,9 +143,9 @@ struct _sState {
   unsigned long ticks_PGM = 0;                // time elapsed since the start of current program step
   unsigned long ticks_PGM_Total = 0;          // time elapsed since current program start
 
-  volatile bool isPgmRunning = false;         // gloabl flag for signalling controller program state
-  volatile bool hasPgmStarted = false;        // check if begin() was properly called
-  volatile bool isRelayOn = false;            // flag to indicate that the relay is turned on
+  volatile bool StartStop = false;            // a flag to signal main loop to start (true) or stop (false) selected program.
+  bool isPgmRunning = false;                  // gloabl flag for signalling controller program state
+  bool isRelayOn = false;                     // flag to indicate that the relay is turned on
 
 } State;
 
@@ -360,24 +360,16 @@ class cMainWindow : public DTWindow {
 
   // callback for start/stop button
   void OnButton_STRTSTP() {
-    if(State.isPgmRunning){
-      // program running - emergency stop
-      digitalWrite(D1, LOW);
-      State.isPgmRunning = false;
-      State.isRelayOn = false;
-      btnStart = FPSTR(BTN_START);
-      btnStart.SetBtnColor(DT_C_GREEN);
+    if(State.StartStop){
+      // true - signal main loop to stop the program
+      State.StartStop = false;
     }else{
-      // program is not running - start active program and let PID controller decide on relay state.
+      // false - signal main loop to start the program
       if(State.ActiveProgram != nullptr){
         // only start things if there is an active program selected
-        // so far just raise the flag and signal program handling code to do all necessary steps to update screen
-        // and calculate setpoint and control action
-        State.isPgmRunning = true;
-        btnStart = FPSTR(BTN_STOP);
-        btnStart.SetBtnColor(DT_C_RED);
+        // raise the flag and signal main loop to start executing
+        State.StartStop = true;
       }
-      // should there be some message to user about the need to select progam ?
     }
     Invalidate();
   }
@@ -501,7 +493,7 @@ void onWSEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
       gi_WsJSONMsg.buffer[info->len] = 0; // add 0 terminating character
 
       // message is in the buffer - add client information and toggle validity flag
-      gi_WsJSONMsg.datalen = info->len;
+      gi_WsJSONMsg.datalen = info->len + 1; // don't forget added 0 character
       gi_WsJSONMsg.client_id = client->id();
       gi_WsJSONMsg.isValid = true;
       break;
@@ -859,28 +851,37 @@ void loop() {
     }
 
     // check if program has to be run (and only if active program is properly set)
-    if(State.isPgmRunning && State.ActiveProgram != nullptr){
+    if(State.StartStop && State.ActiveProgram != nullptr){
       // check if this is the first time program starts
-      if(State.hasPgmStarted){
+      if(State.isPgmRunning){
         // do the normal routine
         State.tSP = State.ActiveProgram->CalculateSetPoint();
       }else{
         // this is the initial step in the program
-        gp_PID = new PIDControl( 1, 1, 1, Configuration.PID.poll);
+        gp_PID = new PIDControl( Configuration.PID.KP, Configuration.PID.KI, Configuration.PID.KD, Configuration.PID.poll);
         State.tSP = State.ActiveProgram->Begin();
         wnd.lblTemprTarget.Visible(true);
-        State.hasPgmStarted = true;
+        
+        State.isPgmRunning = true;
+        wnd.btnStart = FPSTR(BTN_STOP);
+        wnd.btnStart.SetBtnColor(DT_C_RED);
       }
 
       // make a check for program termination
       if(isnan(State.tSP)){
         // meaning an error or reached the end of the program
-        State.isPgmRunning = false;
+        digitalWrite(D1, LOW); // turn relay switch off
+        State.isRelayOn = false;
+
+        State.StartStop = false;
         wnd.lblStatus = F("Program terminating...");
+
       }else{
         // do common staff - calculate controlling signal and turn relay on/off accordingly
         State.U = gp_PID->Evaluate(State.tSP, State.tProbe, State.U);
-        digitalWrite(D1, (State.U > 0.0 ? HIGH : LOW));
+        
+        State.isRelayOn = (State.U > 0.0);
+        digitalWrite(D1, (State.isRelayOn ? HIGH : LOW));
 
         // update labels' values
         (wnd.lblTemprTarget = String(State.tSP,2)) += FPSTR(LBL_DEGC);
@@ -901,26 +902,32 @@ void loop() {
 
     }else{
 
-      // check if running flag was reset but program was actually running - take actions to stop everything and reset program
-      if(State.hasPgmStarted){
+      // check if StartStop flag was reset but program was actually running - take actions to stop everything and reset program
+      if(State.isPgmRunning){
         // stop activity on heater if any and reset program
         digitalWrite(D1, LOW); // turn relay switch off
+        State.isRelayOn = false;
+
+        // reset active program but leave it selected
         if(State.ActiveProgram != nullptr) State.ActiveProgram->Reset();
+
         // reset PID control
         if(gp_PID != nullptr){
           delete gp_PID;
           gp_PID = nullptr;
         }
+
         State.U = 0.0; // reset controlling signal
-        State.hasPgmStarted = false;
+        State.isPgmRunning = false;
         wnd.lblTemprTarget.Visible(false);
         wnd.lblStatus = F("Program has ended");
+
         // reset GUI button
-        State.isRelayOn = false;
         wnd.btnStart = FPSTR(BTN_START);
         wnd.btnStart.SetBtnColor(DT_C_GREEN);
         wnd.Invalidate();
       }
+
     }
 
     // temp? - show ip address in the status bar
@@ -981,9 +988,6 @@ void loop() {
     State.ticks_TSENSOR = ticks;
   }
 
-  // and finally redraw screen if needed
-  wnd.Render(false);
-
   // WebSocket message processing
   // should happen without any timer checks so that we are making responses available for async handler asap
   // should be last in a chain of actions in the main loop
@@ -992,27 +996,122 @@ void loop() {
     if( gi_WsJSONMsg.datalen > 0 ){
       // create an object - same as data length
       DynamicJsonDocument jDocInc{gi_WsJSONMsg.datalen};
+      DeserializationError err = deserializeJson(jDocInc,gi_WsJSONMsg.buffer);
 
-      // create outgoing JSON object
-      DynamicJsonDocument jDocOut{1024}; // ??? appropriate size - especially for configuration file
+      if(!err){
 
-      // form a reply - so far just a "Not implemented"
-      jDocOut["id"] = "ERR";
-      jDocOut["details"] = "Not implemented";
+        // parse JSON command and prepare reply
+        if( JsonObject obj = jDocInc["start"] ){
+          // "start" command received - toggle start and send reply
+          State.StartStop = true;
+          AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+          if(wsc != nullptr) wsc->printf("{\"id\":\"ERR\",\"details\":\"Start signal sent\"}");
 
+        }else if( JsonObject obj = jDocInc["stop"] ){
+          // "stop" command received - toggle stop and send reply
+          State.StartStop = false;
+          AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+          if(wsc != nullptr) wsc->printf("{\"id\":\"ERR\",\"details\":\"Stop signal sent\"}");
 
-      // send out reply
-      AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
-      // make sure client is still valid and can be communicated to
-      if( wsc != nullptr ){
-        size_t jdLenOut = measureJson(jDocOut);
-        AsyncWebSocketMessageBuffer * buffer = gi_WebSocket.makeBuffer(jdLenOut);
-        if(buffer){
-          serializeJson(jDocOut, buffer->get(), jdLenOut + 1);
-          wsc->text(buffer);
+        }else if( JsonObject obj = jDocInc["cfgWR"] ){
+          // configuration submitted from web interface - try building and saving configuration
+          AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+          if(wsc != nullptr) wsc->printf("{\"id\":\"ERR\",\"details\":\"Not implemented\"}");
+
+        }else if( JsonObject obj = jDocInc["cfgRD"] ){
+          // configuration requested - build JSON and send back to client
+          //
+          // NB! when "String" values are added to JsonObject/Array - use c_str() (i.e. const char*) to prevent ArduinoJson from copying those.
+          //     It should be safe to do so: configuration string values are not modified from Async*** library thread.
+          //     As we are on the loop thread - nothing else can modify these strings.
+          //     As we are serializing into the Async*** buffer in the end there is no worry values will change before actually sent over WiFi
+
+          // create outgoing JSON object
+          DynamicJsonDocument jDocOut{8192}; // ??? appropriate size - especially for configuration file
+
+          jDocOut["id"] = "OK";
+
+          // add nested configuration object
+          JsonObject joConfig = jDocOut.createNestedObject("config");
+
+          // add TFT information
+          JsonObject joTFT = joConfig.createNestedObject(FPSTR(JSCONF_TFT));
+          joTFT[FPSTR(JSCONF_POLL)] = Configuration.TFT.poll;
+          JsonArray jaTFT = joTFT.createNestedArray(FPSTR(JSCONF_TFT));
+          jaTFT.add(Configuration.TFT.data.tft[0]);
+          jaTFT.add(Configuration.TFT.data.tft[1]);
+          jaTFT.add(Configuration.TFT.data.tft[2]);
+
+          // add WiFi information
+          JsonObject joWiFi = joConfig.createNestedObject(FPSTR(JSCONF_WIFI));
+          joWiFi[FPSTR(JSCONF_WIFI_SSID)] = Configuration.WiFi.SSID.c_str(); // prevent copying string
+          joWiFi[FPSTR(JSCONF_WIFI_KEY)] = Configuration.WiFi.KEY.c_str(); // prevent copying string
+
+          // add PID information
+          JsonObject joPID = joConfig.createNestedObject(FPSTR(JSCONF_PID));
+          joPID[FPSTR(JSCONF_POLL)] = Configuration.PID.poll;
+          joPID[FPSTR(JSCONF_PID_KP)] = Configuration.PID.KP;
+          joPID[FPSTR(JSCONF_PID_KI)] = Configuration.PID.KI;
+          joPID[FPSTR(JSCONF_PID_KD)] = Configuration.PID.KD;
+
+          // add programs array if there are any programs in currently loaded configuration
+          if(Configuration.nPrograms > 0){
+            JsonArray jaPrograms = joConfig.createNestedArray(FPSTR(JSCONF_PROGRAMS));
+
+            // crate object in array for each program
+            for(int i = 0; i < Configuration.nPrograms; i++){
+              JsonObject joProgram = jaPrograms.createNestedObject();
+              TProgram* currProgram = Configuration.Programs[i];
+
+              // set current program name
+              joProgram[FPSTR(JSCONF_PROGRAM_NAME)] = currProgram->GetName().c_str(); // prevent copying string
+
+              // add steps array
+              JsonArray jaSteps = joProgram.createNestedArray(FPSTR(JSCONF_PROGRAM_STEPS));
+
+              // for each step create nested object and set values
+              for(int j = 0; j < currProgram->GetStepsTotal(); j++){
+                // create step and set values
+                JsonObject joStep = jaSteps.createNestedObject();
+                TProgramStep* currStep = currProgram->GetStep(j);
+
+                joStep[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] = currStep->GetTStart();
+                joStep[FPSTR(JSCONF_PROGRAM_STEP_TEND)] = currStep->GetTEnd();
+                joStep[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] = currStep->GetDuration();
+              }
+            }
+          }
+
+          // send out reply
+          AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+          // make sure client is still valid and can be communicated to
+          if( wsc != nullptr ){
+            size_t jdLenOut = measureJson(jDocOut);
+            AsyncWebSocketMessageBuffer * buffer = gi_WebSocket.makeBuffer(jdLenOut);
+            if(buffer){
+              serializeJson(jDocOut, buffer->get(), jdLenOut + 1);
+              wsc->text(buffer);
+            }
+          }
+
+          // done sending active configuration. jDocOut should be destructed here
+
+        }else{
+          // unknown command
+          AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+          if(wsc != nullptr) wsc->printf("{\"id\":\"ERR\",\"details\":\"Unknown command\"}");
         }
-      }
-    }
+
+      }else{
+        // unable to deserialize JSON
+        AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+        if(wsc != nullptr) wsc->printf("{\"id\":\"ERR\",\"details\":\"Malformed JSON\"}");
+      } // end if(!err)
+
+      // jDocInc goes out of scope - should be destructed here
+      // end processing incoming message
+
+    } // end if(datalen > 0)
 
     // so far drop incoming message silently if it was malformed
 
@@ -1025,5 +1124,8 @@ void loop() {
     gi_WsJSONMsg.client_id = 0;
     gi_WsJSONMsg.isValid = false; // mark as available for accomodating new message after all cleanup activities that may take time
   } // done handling incoming message
+
+  // and finally redraw screen if needed
+  wnd.Render(false);
 
 } // end of loop()
