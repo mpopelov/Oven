@@ -19,11 +19,7 @@
  */
 void DTSelect::AddItem(uint16_t idx, const String& txt)
 {
-    DTSelectItem* itm = new DTSelectItem();
-    itm->text = txt;
-    itm->idx = idx;
-    itm->next = nullptr;
-    itm->prev = _items_last;
+    DTSelectItem* itm = new DTSelectItem(idx, txt, _items_last, nullptr);
 
     if(_items_first == nullptr){
         _items_first = itm; // case first item is nullptr - we are adding the very first item

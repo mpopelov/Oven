@@ -24,10 +24,11 @@
 
 struct DTSelectItem
 {
+    DTSelectItem(uint16_t index, const String& txt, DTSelectItem* prv, DTSelectItem* nxt) : idx(index), text(txt), prev(prv), next(nxt) {}
      uint16_t idx;       // an index of the item
-     String text;        // string to display on the label
-     DTSelectItem* next; // pointer to the next item
+     String text; // string to display on the label
      DTSelectItem* prev; // pointer to previous item
+     DTSelectItem* next; // pointer to the next item
 };
 
 

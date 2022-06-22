@@ -823,8 +823,62 @@ void loop() {
     State.ticks_TS = ticks; // save current timer value for next loop
   }
 
-  // now the main functionality
-  // measure temperature / apply control if needed / update screen elements
+  // after handling events - check program start/stop flag
+  // start/stop can come from TFT as well as from async WebSocket message on previous loop
+  // in any case we need to adopt both screen and running state before potentially
+  // running PID controller
+  // this part is run on every loop to avoid delays
+  if(State.StartStop){
+    // start signalled ...
+    if(!State.isPgmRunning){
+      // ... but program is not running: check if we can start or reset flag otherwise
+      if(State.ActiveProgram != nullptr){
+        // active program exists - prepare and start it
+        gp_PID = new PIDControl( Configuration.PID.KP, Configuration.PID.KI, Configuration.PID.KD, Configuration.PID.poll);
+        State.tSP = State.ActiveProgram->Begin();
+        State.isPgmRunning = true;
+
+        // update GUI
+        wnd.lblTemprTarget.Visible(true);
+        wnd.btnStart = FPSTR(BTN_STOP);
+        wnd.btnStart.SetBtnColor(DT_C_RED);
+      }else{
+        // no active program - reset flag to avoid confusion
+        State.StartStop = false;
+      }
+    } // else program is already running and there is no need to do anything
+  }else{
+    // stop signalled ...
+    if(State.isPgmRunning){
+      // ... but program is running: stop it
+      digitalWrite(D1, LOW); // turn relay switch off
+      State.isRelayOn = false;
+
+      // reset active program but leave it selected - active program can't be nullptr - we should not have started
+      State.ActiveProgram->Reset();
+
+      // reset PID control
+      if(gp_PID != nullptr){
+        delete gp_PID;
+        gp_PID = nullptr;
+      }
+
+      State.U = 0.0; // reset controlling signal
+      State.isPgmRunning = false;
+
+      // update TFT screen
+      wnd.lblTemprTarget.Visible(false);
+      wnd.lblStatus = F("Program has ended");
+      wnd.btnStart = FPSTR(BTN_START);
+      wnd.btnStart.SetBtnColor(DT_C_GREEN);
+    } // else no program is running and there is no need to do anything
+  }
+
+  // with respect to PID poll interval:
+  // - measure temperature
+  // - apply control if needed (i.e. Program is running)
+  // - update TFT screen elements
+  // - send status updates to connected WebSocket clients
   if ( ticks - State.ticks_TSENSOR >= Configuration.PID.poll )
   {
     // read temperature and update values on screen
@@ -850,22 +904,11 @@ void loop() {
       (wnd.lblTempr = String(State.tProbe, 1)) += FPSTR(LBL_DEGC);
     }
 
-    // check if program has to be run (and only if active program is properly set)
-    if(State.StartStop && State.ActiveProgram != nullptr){
-      // check if this is the first time program starts
-      if(State.isPgmRunning){
-        // do the normal routine
-        State.tSP = State.ActiveProgram->CalculateSetPoint();
-      }else{
-        // this is the initial step in the program
-        gp_PID = new PIDControl( Configuration.PID.KP, Configuration.PID.KI, Configuration.PID.KD, Configuration.PID.poll);
-        State.tSP = State.ActiveProgram->Begin();
-        wnd.lblTemprTarget.Visible(true);
-        
-        State.isPgmRunning = true;
-        wnd.btnStart = FPSTR(BTN_STOP);
-        wnd.btnStart.SetBtnColor(DT_C_RED);
-      }
+    // check if program is in Running state
+    if(State.isPgmRunning){
+
+      // Begin() on program should have been called already but still recalculate the Set Point value
+      State.tSP = State.ActiveProgram->CalculateSetPoint();
 
       // make a check for program termination
       if(isnan(State.tSP)){
@@ -875,7 +918,6 @@ void loop() {
 
         State.StartStop = false;
         wnd.lblStatus = F("Program terminating...");
-
       }else{
         // do common staff - calculate controlling signal and turn relay on/off accordingly
         State.U = gp_PID->Evaluate(State.tSP, State.tProbe, State.U);
@@ -900,35 +942,7 @@ void loop() {
         (wnd.lblStatus = F("Control U = ")) += String(State.U,6);
       }
 
-    }else{
-
-      // check if StartStop flag was reset but program was actually running - take actions to stop everything and reset program
-      if(State.isPgmRunning){
-        // stop activity on heater if any and reset program
-        digitalWrite(D1, LOW); // turn relay switch off
-        State.isRelayOn = false;
-
-        // reset active program but leave it selected
-        if(State.ActiveProgram != nullptr) State.ActiveProgram->Reset();
-
-        // reset PID control
-        if(gp_PID != nullptr){
-          delete gp_PID;
-          gp_PID = nullptr;
-        }
-
-        State.U = 0.0; // reset controlling signal
-        State.isPgmRunning = false;
-        wnd.lblTemprTarget.Visible(false);
-        wnd.lblStatus = F("Program has ended");
-
-        // reset GUI button
-        wnd.btnStart = FPSTR(BTN_START);
-        wnd.btnStart.SetBtnColor(DT_C_GREEN);
-        wnd.Invalidate();
-      }
-
-    }
+    } // end if(isPgmRunning)
 
     // temp? - show ip address in the status bar
     // find some other solution in order to let user know where to connect
@@ -1017,8 +1031,95 @@ void loop() {
 
         }else if(!strcmp("cfgWR",cmd)){
           // configuration submitted from web interface - try building and saving configuration
-          AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
-          if(wsc != nullptr) wsc->printf("{\"id\":\"ERR\",\"details\":\"Not implemented\"}");
+
+          // jDocInc should contain msg object with configuration set
+          JsonObject joConfig = jDocInc["msg"];
+          if(joConfig){
+            // msg object present
+            
+            // a. read TFT parameters
+            if( JsonObject obj = joConfig[FPSTR(JSCONF_TFT)] ){
+              // TFT section is present in the document
+              // only set poll interval value - calibration data should only be set via actual touch screen calibration
+              Configuration.TFT.poll = obj[FPSTR(JSCONF_POLL)] | 300;
+            }
+        
+            // b. read WiFi parameters
+            if( JsonObject obj = joConfig[FPSTR(JSCONF_WIFI)] ){
+              // WiFi section is present in the document
+              Configuration.WiFi.SSID = obj[FPSTR(JSCONF_WIFI_SSID)].as<const char*>();
+              Configuration.WiFi.KEY = obj[FPSTR(JSCONF_WIFI_KEY)].as<const char *>();
+            }
+
+            // c. read PID parameters
+            if( JsonObject obj = joConfig[FPSTR(JSCONF_PID)] ){
+              // PID section is present in the document
+              Configuration.PID.poll = obj[FPSTR(JSCONF_POLL)] | 1000;
+              Configuration.PID.KP = obj[FPSTR(JSCONF_PID_KP)] | 1.0;
+              Configuration.PID.KI = obj[FPSTR(JSCONF_PID_KI)] | 1.0;
+              Configuration.PID.KD = obj[FPSTR(JSCONF_PID_KD)] | 1.0;
+            }
+
+            // d. read programs
+            if( JsonArray parr = joConfig[FPSTR(JSCONF_PROGRAMS)] ){
+              // Programs section is present in the document
+              // build a separate list of new incoming programs to replace in configuration afterwards
+              int nPrograms = parr.size();
+              if(nPrograms > 0){
+                // array contains elements
+                TProgram** Programs = new TProgram*[nPrograms];
+
+                // try reading all of them
+                for(int i = 0; i < nPrograms; i++){
+                  // program might be malformed in JSON for some reason - make sure it is not pointing anywhere
+                  Programs[i] = nullptr;
+                  if( JsonObject pobj = parr[i] ){
+                    // try reading steps - create program only in case steps are defined
+                    if(JsonArray sarr = pobj[FPSTR(JSCONF_PROGRAM_STEPS)]){
+                      // steps are defined - create program and try populating it with steps
+                      int nSteps = sarr.size();
+                      // create new program
+                      TProgram* p = new TProgram( nSteps, pobj[FPSTR(JSCONF_PROGRAM_NAME)] | String(F("InvalidName")) );
+                      // read and add every step
+                      for( int j = 0; j < nSteps; j++){
+                        if( JsonObject sobj = sarr[j] ){
+                          // add step in case it is represented as a valid JSON object
+                          p->AddStep( sobj[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] | 0.0,
+                                      sobj[FPSTR(JSCONF_PROGRAM_STEP_TEND)] | 0.0,
+                                      sobj[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] | 0 );
+                        }
+                      }
+                      p->Reset(); // reset program to ready state
+                      Programs[i] = p; // add it to an array of programs
+                    }
+                    // at this pont Programs[i] is either nullptr or a valid object
+                  }
+                }
+
+                // now replace programs in configuration object
+                int old_nPrograms = Configuration.nPrograms;
+                TProgram** old_Programs = Configuration.Programs;
+
+                Configuration.nPrograms = nPrograms;
+                Configuration.Programs = Programs;
+
+                if(old_nPrograms > 0){
+                  for(int i = 0; i < old_nPrograms; i++) delete old_Programs[i];
+                  delete Configuration.Programs;
+                }
+              } // done reading programs
+
+              // notify client that configuration was modified
+              AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+              if(wsc != nullptr) wsc->printf("{\"id\":\"OK\",\"details\":\"Configuration modified\"}");
+            }
+          }else{
+            // malformed request
+            AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+            if(wsc != nullptr) wsc->printf("{\"id\":\"ERR\",\"details\":\"Malformed JSON\"}");
+          }
+
+          // done parsing incoming configuration
 
         }else if(!strcmp("cfgRD",cmd)){
           // configuration requested - build JSON and send back to client
