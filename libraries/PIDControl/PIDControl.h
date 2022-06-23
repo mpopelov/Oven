@@ -26,8 +26,8 @@ class PIDControl
       * @param Kd Derivative coeffitient
       * @param dt Expected discrete time step (in ms)
       */
-     PIDControl(double Kp, double Ki, double Kd, double dt)
-     : _d0(0.0), _d1(0.0), _fd0(0.0), _fd1(0.0)
+     PIDControl(double Kp, double Ki, double Kd, unsigned long dt)
+     : poll(dt), _d0(0.0), _d1(0.0), _fd0(0.0), _fd1(0.0)
      {
          // seed values for PID controller
          _error[0] = _error[1] = _error[2] = 0.0;
@@ -53,6 +53,9 @@ class PIDControl
       * @return calculated controlling signal value to be applied
       */
      double Evaluate(double SP, double PV, double U);
+
+     // polling interval that this instance of PID control was initialized with
+     unsigned long poll;
 
     private:
      // PID coeffitients

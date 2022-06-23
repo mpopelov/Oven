@@ -844,13 +844,18 @@ void loop() {
   // - apply control if needed (i.e. Program is running)
   // - update TFT screen elements
   // - send status updates to connected WebSocket clients
-  if ( ticks - State.ticks_TSENSOR >= Configuration.PID.poll )
+  //
+  // NB! once PIDControl program has started - polling interval is taken from current instance of PID regardless of any changes
+  //     to configuration from Web interface.
+  //     If the program is not running (has stopped) - value from running config is used
+  //
+  unsigned long _PIDPOLL = State.isPgmRunning ? gp_PID->poll : Configuration.PID.poll;
+  if ( ticks - State.ticks_TSENSOR >= _PIDPOLL )
   {
     // read temperature and update values on screen
     uint8_t faultCode = gi_TS.readChip();           // read chip updated value and save error for easy access
     State.tAmbient    = gi_TS.getAmbient();         // get updated value of chip ambient temperature
     State.tProbe      = gi_TS.getProbeLinearized(); // get probe temperature as read by chip
-    State.tSP         = NAN;                        // current set point as returned by program running
 
     if (faultCode)                                  // Display error code if present
     {
@@ -863,6 +868,7 @@ void loop() {
       if (faultCode & 0b100) {
         wnd.lblStatus = F("ERR: Sensor s-c to VCC(+)");
       }
+      wnd.lblTempr = FPSTR(LBL_EMPTY);
     }
     else
     {
@@ -876,7 +882,7 @@ void loop() {
       State.tSP = State.ActiveProgram->CalculateSetPoint();
 
       // make a check for program termination
-      if(isnan(State.tSP)){
+      if(isnan(State.tSP) || faultCode){
         // meaning an error or reached the end of the program
         digitalWrite(D1, LOW); // turn relay switch off
         State.isRelayOn = false;
