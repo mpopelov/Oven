@@ -1,36 +1,36 @@
-// example messages
-
-// status message example
 {
-    "id" : "STS",
-    "status" : {
-        "tPB" : 300,
-        "tAM" : 26.5,
-        "tSP" : 100,
-        "U" : 0.25,
-        "isRunning" : false,
-        "isRelayOn" : false,
-        "stsText" : "Some status text",
-        "actStep" : 1,
-        "tmElapsed" : 86400,
-        "actPgm" : { 
-            "Name" : "Utility Red",
-            "steps": [
-                { "tStart" : 28, "tEnd" : 100, "duration" : 2100000 },
-                { "tStart" : 100, "tEnd" : 100, "duration" : 2100000 },
-                { "tStart" : 100, "tEnd" : 200, "duration" : 2100000 },
-                { "tStart" : 200, "tEnd" : 200, "duration" : 2100000 },
-                { "tStart" : 200, "tEnd" : 595, "duration" : 9000000 },
-                { "tStart" : 595, "tEnd" : 595, "duration" : 2700000 },
-                { "tStart" : 595, "tEnd" : 950, "duration" : 9000000 },
-                { "tStart" : 950, "tEnd" : 950, "duration" : 900000 }
-            ]
+    "Example status message" :
+    {
+        "id" : "STS",
+        "status" : {
+            "tPB" : 300,
+            "tAM" : 26.5,
+            "tSP" : 100,
+            "U" : 0.25,
+            "isRunning" : false,
+            "isRelayOn" : false,
+            "stsText" : "Some status text",
+            "actStep" : 1,
+            "tmElapsed" : 86400,
+            "actPgm" : { 
+                "Name" : "Utility Red",
+                "steps": [
+                    { "tStart" : 28, "tEnd" : 100, "duration" : 2100000 },
+                    { "tStart" : 100, "tEnd" : 100, "duration" : 2100000 },
+                    { "tStart" : 100, "tEnd" : 200, "duration" : 2100000 },
+                    { "tStart" : 200, "tEnd" : 200, "duration" : 2100000 },
+                    { "tStart" : 200, "tEnd" : 595, "duration" : 9000000 },
+                    { "tStart" : 595, "tEnd" : 595, "duration" : 2700000 },
+                    { "tStart" : 595, "tEnd" : 950, "duration" : 9000000 },
+                    { "tStart" : 950, "tEnd" : 950, "duration" : 900000 }
+                ]
+            }
         }
-    }
+    },
+
+    "Example error message - Busy" :
+    {"id":"ERR","details":"Busy"},
+    
+    "Example error message - No memory" :
+    {"id":"ERR","details":"No memory"}
 }
-
-// error message Busy example
-{"id":"ERR","details":"Busy"}
-
-// error message No memory example
-{"id":"ERR","details":"No memory"}

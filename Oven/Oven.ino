@@ -36,22 +36,26 @@
 /**
  * Fonts to be used for rendering on TFT display
  */
-#define FSN1 FreeSans9pt7b // for status text and small labels
-#define FSB1 FreeSansBold9pt7b // bold font for small text
-#define FSN2 FreeSans12pt7b // for medium sized text
+#define FSN1 FreeSans9pt7b      // for status text and small labels
+#define FSB1 FreeSansBold9pt7b  // bold font for small text
+#define FSN2 FreeSans12pt7b     // for medium sized text
 #define FSB2 FreeSansBold12pt7b // for medium sized text in bold
 #define FSB3 FreeSansBold18pt7b
 #define FSB4 FreeSansBold24pt7b
+
+#define DEFAULT_TFT_POLL 300    // default TFT touch screen polling interval
+#define DEFAULT_PID_POLL 1000   // default PID polling interval
+#define DEFAULT_PID_PRM  1.0    // defailt value for PID coeffitients
 
 /**
  * Global string constants
  */
 // file names and paths (also for web server)
 static const char FILE_CONFIGURATION[] PROGMEM = "oven.json";
-static const char FILE_WEB_ROOT[]              = "/";
 static const char FILE_WEB_INDEX[]             = "index.html";
-static const char FILE_WEB_HEAP[]              = "/heap";
-static const char FILE_WEB_WS[] PROGMEM        = "/ws";
+static const char PATH_WEB_ROOT[]              = "/";
+static const char PATH_WEB_HEAP[]              = "/heap";
+static const char PATH_WEB_WS[] PROGMEM        = "/ws";
 static const char FILE_WEB_CT_TXT[] PROGMEM    = "text/plain";
 
 // button text strings
@@ -100,7 +104,7 @@ static const char JSCONF_PROGRAM_STEP_DURATION[] PROGMEM  = "duration";
 struct _sConfiguration {
 
   struct _sTFT {
-    unsigned long poll = 300;                // poll touch screen that often (in ms)
+    unsigned long poll = DEFAULT_TFT_POLL;  // poll touch screen that often (in ms)
     union _uData {
       uint32_t tft[3] = {0, 0, 0};
       uint16_t raw[6];
@@ -114,10 +118,10 @@ struct _sConfiguration {
   } WiFi;
 
   struct _sPID {
-    unsigned long poll = 1000;               // only measure temperature that often (in ms)
-    double KP = 1.0;
-    double KI = 1.0;
-    double KD = 1.0;
+    unsigned long poll = DEFAULT_PID_POLL;  // only measure temperature that often (in ms)
+    double KP = DEFAULT_PID_PRM;
+    double KI = DEFAULT_PID_PRM;
+    double KD = DEFAULT_PID_PRM;
   } PID;
 
   int nPrograms = 0;
@@ -150,7 +154,7 @@ struct _sState {
 } State;
 
 /**
- * @brief TEMP! structure to handle incoming messages
+ * @brief Structure to handle incoming messages
  * @details Structure holds all the information relevant to process request and prepare response
  *          over WebSocket.
  *          isValid field is used to mark message valid for processing in the main loop
@@ -176,7 +180,7 @@ TSensor           gi_TS{D2, false};                 // MAX31855 K-type temperatu
 PIDControl*       gp_PID = nullptr;                 // pid control instance
 
 AsyncWebServer    gi_WebServer{80};                 // a web server instance
-AsyncWebSocket    gi_WebSocket{FPSTR(FILE_WEB_WS)}; // web socket for communicating with OvenWEB
+AsyncWebSocket    gi_WebSocket{FPSTR(PATH_WEB_WS)}; // web socket for communicating with OvenWEB
 
 
 
@@ -435,6 +439,108 @@ class cMainWindow : public DTWindow {
 cMainWindow wnd{gi_Tft}; // main window instance
 
 /**
+ * @brief Updates running controller configuration from a given JsonObject
+ * 
+ * @param joConfig JSON object containing configuration parameters
+ * @param startup indicates whether configuration is initialized at startup or to be updated while controller is running
+ */
+void UpdateRunningConfig(JsonObject& joConfig, bool startup){
+  
+  // a. read TFT parameters
+  if( JsonObject obj = joConfig[FPSTR(JSCONF_TFT)] ){
+    // TFT section is present in the document
+    
+    // set TFT touch sensor polling interval
+    Configuration.TFT.poll = obj[FPSTR(JSCONF_POLL)] | DEFAULT_TFT_POLL;
+
+    // calibration data should only be set during startup
+    if(startup){
+    // try to read TS parameters saved earlier
+      if( JsonArray arr = obj[FPSTR(JSCONF_TFT)] ){
+        if( arr.size() == 3 ){
+          // try parse data from JSON config
+          Configuration.TFT.data.tft[0] = arr[0] | 0;
+          Configuration.TFT.data.tft[1] = arr[1] | 0;
+          Configuration.TFT.data.tft[2] = arr[2] | 0;
+        } // else - leave calibration data as is
+      }
+    }
+  }
+  if(!startup) yield();
+        
+  // b. read WiFi parameters
+  if( JsonObject obj = joConfig[FPSTR(JSCONF_WIFI)] ){
+    // WiFi section is present in the document
+    Configuration.WiFi.SSID = obj[FPSTR(JSCONF_WIFI_SSID)].as<const char*>();
+    Configuration.WiFi.KEY = obj[FPSTR(JSCONF_WIFI_KEY)].as<const char *>();
+  }
+  if(!startup) yield();
+
+  // c. read PID parameters
+  if( JsonObject obj = joConfig[FPSTR(JSCONF_PID)] ){
+    // PID section is present in the document
+    Configuration.PID.poll = obj[FPSTR(JSCONF_POLL)] | DEFAULT_PID_POLL;
+    Configuration.PID.KP = obj[FPSTR(JSCONF_PID_KP)] | DEFAULT_PID_PRM;
+    Configuration.PID.KI = obj[FPSTR(JSCONF_PID_KI)] | DEFAULT_PID_PRM;
+    Configuration.PID.KD = obj[FPSTR(JSCONF_PID_KD)] | DEFAULT_PID_PRM;
+  }
+  if(!startup) yield();
+
+  // d. read programs
+  if( JsonArray parr = joConfig[FPSTR(JSCONF_PROGRAMS)] ){
+    // Programs section is present in the document
+    // build a separate list of new incoming programs to replace in configuration afterwards
+    int nPrograms = parr.size();
+    if(nPrograms > 0){
+      // array contains elements
+      TProgram** Programs = new TProgram*[nPrograms];
+
+      // try reading all of them
+      for(int i = 0; i < nPrograms; i++){
+        // program might be malformed in JSON for some reason - make sure it is not pointing anywhere
+        Programs[i] = nullptr;
+        if( JsonObject pobj = parr[i] ){
+          // try reading steps - create program only in case steps are defined
+          if(JsonArray sarr = pobj[FPSTR(JSCONF_PROGRAM_STEPS)]){
+            // steps are defined - create program and try populating it with steps
+            int nSteps = sarr.size();
+            // create new program
+            TProgram* p = new TProgram( nSteps, pobj[FPSTR(JSCONF_PROGRAM_NAME)] | String(F("InvalidName")) );
+            // read and add every step
+            for( int j = 0; j < nSteps; j++){
+              if( JsonObject sobj = sarr[j] ){
+                // add step in case it is represented as a valid JSON object
+                p->AddStep( sobj[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] | 0.0,
+                            sobj[FPSTR(JSCONF_PROGRAM_STEP_TEND)] | 0.0,
+                            sobj[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] | 0 );
+              }
+            }
+            p->Reset(); // reset program to ready state
+            Programs[i] = p; // add it to an array of programs
+          }
+          // at this pont Programs[i] is either nullptr or a valid object
+          if(!startup) yield();
+        }
+      }
+
+      // now replace programs in configuration object
+      // TODO: introduce sync lock in order to avoid problems when replacing programs
+      // while user might be selecting them on TFT screen
+      int old_nPrograms = Configuration.nPrograms;
+      TProgram** old_Programs = Configuration.Programs;
+
+      Configuration.nPrograms = nPrograms;
+      Configuration.Programs = Programs;
+
+      if(old_nPrograms > 0){
+        for(int i = 0; i < old_nPrograms; i++) delete old_Programs[i];
+        delete Configuration.Programs;
+      }
+    } // done reading programs
+  }
+}
+
+/**
  * @brief WebSocket event handler.
  * 
  * @param server server instance
@@ -511,7 +617,6 @@ void onWSEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
  *          - Launches web server
  */
 void setup() {
-  uint8_t calDataOK = 0;            // calibration data reding status
   cSplashScreenWindow wSS{gi_Tft};  // splash screen window
 
   // initialize screen
@@ -561,148 +666,8 @@ void setup() {
 
       // parese JSON if it was deserialized successfully
       if(!err){
-
-        // a. read TFT parameters
-        if( JsonObject obj = JDoc[FPSTR(JSCONF_TFT)] ){
-          // TFT section is present in the document
-          Configuration.TFT.poll = obj[FPSTR(JSCONF_POLL)] | 300;
-          if( JsonArray arr = obj[FPSTR(JSCONF_TFT)] ){
-            if( arr.size() == 3 ){
-              // try parse data from JSON config
-              Configuration.TFT.data.tft[0] = arr[0] | 0;
-              Configuration.TFT.data.tft[1] = arr[1] | 0;
-              Configuration.TFT.data.tft[2] = arr[2] | 0;
-              calDataOK = true;
-            } // else - leave calibration data as 0
-          }
-        }
-        
-        // b. read WiFi parameters
-        if( JsonObject obj = JDoc[FPSTR(JSCONF_WIFI)] ){
-          // WiFi section is present in the document
-          Configuration.WiFi.SSID = obj[FPSTR(JSCONF_WIFI_SSID)].as<String>();
-          Configuration.WiFi.KEY = obj[FPSTR(JSCONF_WIFI_KEY)].as<String>();
-        }
-
-        // c. read PID parameters
-        if( JsonObject obj = JDoc[FPSTR(JSCONF_PID)] ){
-          // PID section is present in the document
-          Configuration.PID.poll = obj[FPSTR(JSCONF_POLL)] | 1000;
-          Configuration.PID.KP = obj[FPSTR(JSCONF_PID_KP)] | 1.0;
-          Configuration.PID.KI = obj[FPSTR(JSCONF_PID_KI)] | 1.0;
-          Configuration.PID.KD = obj[FPSTR(JSCONF_PID_KD)] | 1.0;
-        }
-
-        // d. read programs
-        if( JsonArray parr = JDoc[FPSTR(JSCONF_PROGRAMS)] ){
-          // Programs section is present in the document
-          Configuration.nPrograms = parr.size();
-
-          if(Configuration.nPrograms > 0){
-            // array contains elements
-            Configuration.Programs = new TProgram*[Configuration.nPrograms];
-
-            // try reading all of them
-            for(int i = 0; i < Configuration.nPrograms; i++){
-
-              // program might be malformed in JSON for some reason - make sure it is not pointing anywhere
-              Configuration.Programs[i] = nullptr;
-
-              if( JsonObject pobj = parr[i] ){
-
-                // try reading steps - create program only in case steps are defined
-                if(JsonArray sarr = pobj[FPSTR(JSCONF_PROGRAM_STEPS)]){
-                  // steps are defined - create program and try populating it with steps
-                  int nSteps = sarr.size();
-
-                  // create new program
-                  TProgram* p = new TProgram( nSteps, pobj[FPSTR(JSCONF_PROGRAM_NAME)] | String(F("InvalidName")) );
-                  // read and add every step
-                  for( int j = 0; j < nSteps; j++){
-                    if( JsonObject sobj = sarr[j] ){
-                      // add step in case it is represented as a valid JSON object
-                      p->AddStep( sobj[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] | 0.0,
-                                  sobj[FPSTR(JSCONF_PROGRAM_STEP_TEND)] | 0.0,
-                                  sobj[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] | 0 );
-                    }
-                  }
-
-                  p->Reset(); // reset program to ready state
-                  Configuration.Programs[i] = p; // add it to an array of programs
-                }
-
-                // at this pont Configuration.Programs[i] is either nullptr or a valid object
-              }
-            }
-
-          }
-
-        }else{
-          // TODO: add sample programs? (just in case) - remove otherwise
-          /*
-          * Sample programs to add and run on oven:
-          *
-          * Prog name  | temp range  | temp range  | temp range  | temp range  | temp range  | temp range  | temp range  | temp range  |
-          *            | duration    | duration    | duration    | duration    | duration    | duration    | duration    | duration    |
-          * -----------+-------------+-------------+-------------+-------------+-------------+-------------+-------------+-------------|
-          * utility R  | 0-100       | 100-100     | 100-200     | 200-200     | 200-595     | 595-595     | 595-950     | 950-950     |
-          *            | 35 min      | 35 min      | 35 min      | 35 min      | 2 h 30 min  | 45 min      | 2 h 30 min  | 15 min      |
-          *            
-          * utility W  | 0-100       | 100-100     | 100-200     | 200-200     | 200-595     | 595-595     | 595-1000    | 1000-1000   |
-          *            | 35 min      | 35 min      | 35 min      | 35 min      | 2 h 30 min  | 45 min      | 2 h 30 min  | 15 min      |
-          * 
-          * glazing    | 0-100       | 100-100     | 100-200     | 200-200     | 200-max     | max         |             |             |
-          *            | 35 min      | 35 min      | 35 min      | 35 min      | 3 h 00 min  | 40 min      |             |             | 
-          * 
-          */
-
-          Configuration.nPrograms = 4;
-          Configuration.Programs = new TProgram*[Configuration.nPrograms];
-
-          TProgram* p = new TProgram(3, F("Testing PID"));
-          p->AddStep(28 , 100, 1*60000); // step 1
-          p->AddStep(100, 100, 1*60000); // step 2
-          p->AddStep(100, 40, 1*60000); // step 3
-          p->Reset();
-          Configuration.Programs[0] = p;
-
-          p = new TProgram(8, F("Utility Red"));
-          p->AddStep(28 , 100, 35*60000); // step 1
-          p->AddStep(100, 100, 35*60000); // step 2
-          p->AddStep(100, 200, 35*60000); // step 3
-          p->AddStep(200, 200, 35*60000); // step 4
-          p->AddStep(200, 595, (2*60+30)*60000); // step 5
-          p->AddStep(595, 595, 45*60000); // step 6
-          p->AddStep(595, 950, (2*60+30)*60000); // step 7
-          p->AddStep(950, 950, 15*60000); // step 8
-          p->Reset();
-          Configuration.Programs[1] = p;
-
-          p = new TProgram(8, F("Utility White"));
-          p->AddStep(28 , 100, 35*60000); // step 1
-          p->AddStep(100, 100, 35*60000); // step 2
-          p->AddStep(100, 200, 35*60000); // step 3
-          p->AddStep(200, 200, 35*60000); // step 4
-          p->AddStep(200, 595, (2*60+30)*60000); // step 5
-          p->AddStep(595, 595, 45*60000); // step 6
-          p->AddStep(595, 1000, (2*60+30)*60000); // step 7
-          p->AddStep(1000, 1000, 15*60000); // step 8
-          p->Reset();
-          Configuration.Programs[2] = p;
-
-          p = new TProgram(6, F("Glazing"));
-          p->AddStep(28  , 100, 35*60000); // step 1
-          p->AddStep(100, 100, 35*60000); // step 2
-          p->AddStep(100, 200, 35*60000); // step 3
-          p->AddStep(200, 200, 35*60000); // step 4
-          p->AddStep(200, 1250, (3*60)*60000); // step 5
-          p->AddStep(1250, 1250, 40*60000); // step 6
-          p->Reset();
-          Configuration.Programs[3] = p;
-        }
-
-        // e. done reading configuration from file
-
+        JsonObject joConfig = JDoc.as<JsonObject>();
+        UpdateRunningConfig(joConfig, true);
       }else{
         // an error occured parsing JSON
       }
@@ -718,7 +683,7 @@ void setup() {
   wSS.lblStatus = F("Setting up touchscreen...");
   wSS.Render(false);
 
-  calDataOK = ( Configuration.TFT.data.tft[0] != 0 && Configuration.TFT.data.tft[1] != 0 && Configuration.TFT.data.tft[2] != 0);
+  bool calDataOK = ( Configuration.TFT.data.tft[0] != 0 && Configuration.TFT.data.tft[1] != 0 && Configuration.TFT.data.tft[2] != 0);
   if (calDataOK) {
     // calibration data valid
     gi_Tft.setTouch(Configuration.TFT.data.raw);
@@ -780,9 +745,9 @@ void setup() {
   // TEMP: add hello hook to root - remove after testing
   //gi_WebServer.on(FILE_WEB_ROOT, [](AsyncWebServerRequest *request) { request->send(200, FPSTR(FILE_WEB_CT_TXT), F("Hello async from controller")); });
   // TEMP? add hook to /heap path - show free heap for monitoring purposes
-  gi_WebServer.on(FILE_WEB_HEAP, HTTP_GET, [](AsyncWebServerRequest *request){ request->send(200, FPSTR(FILE_WEB_CT_TXT), F("Free heap: ") + String(ESP.getFreeHeap())); });
+  gi_WebServer.on(PATH_WEB_HEAP, HTTP_GET, [](AsyncWebServerRequest *request){ request->send(200, FPSTR(FILE_WEB_CT_TXT), F("Free heap: ") + String(ESP.getFreeHeap())); });
   // serve files from filesystem with default being index.html
-  gi_WebServer.serveStatic(FILE_WEB_ROOT, LittleFS, FILE_WEB_ROOT).setDefaultFile(FILE_WEB_INDEX);
+  gi_WebServer.serveStatic(PATH_WEB_ROOT, LittleFS, PATH_WEB_ROOT).setDefaultFile(FILE_WEB_INDEX);
   // add response hook on invalid paths HTTP: 404
   gi_WebServer.onNotFound([](AsyncWebServerRequest *request) { request->send(404, FPSTR(FILE_WEB_CT_TXT), F("Nothing found :(")); });
 
@@ -1036,83 +1001,12 @@ void loop() {
           JsonObject joConfig = jDocInc["msg"];
           if(joConfig){
             // msg object present
-            
-            // a. read TFT parameters
-            if( JsonObject obj = joConfig[FPSTR(JSCONF_TFT)] ){
-              // TFT section is present in the document
-              // only set poll interval value - calibration data should only be set via actual touch screen calibration
-              Configuration.TFT.poll = obj[FPSTR(JSCONF_POLL)] | 300;
-            }
-        
-            // b. read WiFi parameters
-            if( JsonObject obj = joConfig[FPSTR(JSCONF_WIFI)] ){
-              // WiFi section is present in the document
-              Configuration.WiFi.SSID = obj[FPSTR(JSCONF_WIFI_SSID)].as<const char*>();
-              Configuration.WiFi.KEY = obj[FPSTR(JSCONF_WIFI_KEY)].as<const char *>();
-            }
+            UpdateRunningConfig(joConfig, false);
 
-            // c. read PID parameters
-            if( JsonObject obj = joConfig[FPSTR(JSCONF_PID)] ){
-              // PID section is present in the document
-              Configuration.PID.poll = obj[FPSTR(JSCONF_POLL)] | 1000;
-              Configuration.PID.KP = obj[FPSTR(JSCONF_PID_KP)] | 1.0;
-              Configuration.PID.KI = obj[FPSTR(JSCONF_PID_KI)] | 1.0;
-              Configuration.PID.KD = obj[FPSTR(JSCONF_PID_KD)] | 1.0;
-            }
+            // notify client that configuration was modified
+            AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+            if(wsc != nullptr) wsc->printf("{\"id\":\"OK\",\"details\":\"Configuration modified\"}");
 
-            // d. read programs
-            if( JsonArray parr = joConfig[FPSTR(JSCONF_PROGRAMS)] ){
-              // Programs section is present in the document
-              // build a separate list of new incoming programs to replace in configuration afterwards
-              int nPrograms = parr.size();
-              if(nPrograms > 0){
-                // array contains elements
-                TProgram** Programs = new TProgram*[nPrograms];
-
-                // try reading all of them
-                for(int i = 0; i < nPrograms; i++){
-                  // program might be malformed in JSON for some reason - make sure it is not pointing anywhere
-                  Programs[i] = nullptr;
-                  if( JsonObject pobj = parr[i] ){
-                    // try reading steps - create program only in case steps are defined
-                    if(JsonArray sarr = pobj[FPSTR(JSCONF_PROGRAM_STEPS)]){
-                      // steps are defined - create program and try populating it with steps
-                      int nSteps = sarr.size();
-                      // create new program
-                      TProgram* p = new TProgram( nSteps, pobj[FPSTR(JSCONF_PROGRAM_NAME)] | String(F("InvalidName")) );
-                      // read and add every step
-                      for( int j = 0; j < nSteps; j++){
-                        if( JsonObject sobj = sarr[j] ){
-                          // add step in case it is represented as a valid JSON object
-                          p->AddStep( sobj[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] | 0.0,
-                                      sobj[FPSTR(JSCONF_PROGRAM_STEP_TEND)] | 0.0,
-                                      sobj[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] | 0 );
-                        }
-                      }
-                      p->Reset(); // reset program to ready state
-                      Programs[i] = p; // add it to an array of programs
-                    }
-                    // at this pont Programs[i] is either nullptr or a valid object
-                  }
-                }
-
-                // now replace programs in configuration object
-                int old_nPrograms = Configuration.nPrograms;
-                TProgram** old_Programs = Configuration.Programs;
-
-                Configuration.nPrograms = nPrograms;
-                Configuration.Programs = Programs;
-
-                if(old_nPrograms > 0){
-                  for(int i = 0; i < old_nPrograms; i++) delete old_Programs[i];
-                  delete Configuration.Programs;
-                }
-              } // done reading programs
-
-              // notify client that configuration was modified
-              AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
-              if(wsc != nullptr) wsc->printf("{\"id\":\"OK\",\"details\":\"Configuration modified\"}");
-            }
           }else{
             // malformed request
             AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
