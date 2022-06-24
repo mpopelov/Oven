@@ -541,6 +541,71 @@ void UpdateRunningConfig(JsonObject& joConfig, bool startup){
 }
 
 /**
+ * @brief Given a reference to JSON object populates it with current running configuration
+ * 
+ * @param joConfig a valid JsonObject that will be modified and filled with configuration values
+ */
+void BuildRunningConfig(JsonObject& joConfig){
+  // a valid JsonObject is expected with enough space allocated to hold configuration
+  //
+  // NB! when "String" values are added to JsonObject/Array - use c_str() (i.e. const char*) to prevent ArduinoJson from copying those.
+  //     It should be safe to do so: configuration string values are not modified from Async*** library thread.
+  //     As we are on the loop thread - nothing else can modify these strings.
+  //     As we are serializing into the Async*** buffer in the end there is no worry values will change before actually sent over WiFi
+
+  // add TFT information
+  JsonObject joTFT = joConfig.createNestedObject(FPSTR(JSCONF_TFT));
+  joTFT[FPSTR(JSCONF_POLL)] = Configuration.TFT.poll;
+  JsonArray jaTFT = joTFT.createNestedArray(FPSTR(JSCONF_TFT));
+  jaTFT.add(Configuration.TFT.data.tft[0]);
+  jaTFT.add(Configuration.TFT.data.tft[1]);
+  jaTFT.add(Configuration.TFT.data.tft[2]);
+
+  // add WiFi information
+  JsonObject joWiFi = joConfig.createNestedObject(FPSTR(JSCONF_WIFI));
+  joWiFi[FPSTR(JSCONF_WIFI_SSID)] = Configuration.WiFi.SSID.c_str(); // prevent copying string
+  joWiFi[FPSTR(JSCONF_WIFI_KEY)] = Configuration.WiFi.KEY.c_str(); // prevent copying string
+
+  // add PID information
+  JsonObject joPID = joConfig.createNestedObject(FPSTR(JSCONF_PID));
+  joPID[FPSTR(JSCONF_POLL)] = Configuration.PID.poll;
+  joPID[FPSTR(JSCONF_PID_KP)] = Configuration.PID.KP;
+  joPID[FPSTR(JSCONF_PID_KI)] = Configuration.PID.KI;
+  joPID[FPSTR(JSCONF_PID_KD)] = Configuration.PID.KD;
+
+  // add programs array if there are any programs in currently loaded configuration
+  if(Configuration.nPrograms > 0){
+    JsonArray jaPrograms = joConfig.createNestedArray(FPSTR(JSCONF_PROGRAMS));
+
+    // crate object in array for each program
+    for(int i = 0; i < Configuration.nPrograms; i++){
+      JsonObject joProgram = jaPrograms.createNestedObject();
+      TProgram* currProgram = Configuration.Programs[i];
+
+      // set current program name
+      joProgram[FPSTR(JSCONF_PROGRAM_NAME)] = currProgram->GetName().c_str(); // prevent copying string
+
+      // add steps array
+      JsonArray jaSteps = joProgram.createNestedArray(FPSTR(JSCONF_PROGRAM_STEPS));
+
+      // for each step create nested object and set values
+      for(int j = 0; j < currProgram->GetStepsTotal(); j++){
+        // create step and set values
+        JsonObject joStep = jaSteps.createNestedObject();
+        TProgramStep* currStep = currProgram->GetStep(j);
+
+        joStep[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] = currStep->GetTStart();
+        joStep[FPSTR(JSCONF_PROGRAM_STEP_TEND)] = currStep->GetTEnd();
+        joStep[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] = currStep->GetDuration();
+      }
+    }
+  }
+
+  // end building up configuration
+  // it's up to a caller to decide what to do with it
+}
+
+/**
  * @brief WebSocket event handler.
  * 
  * @param server server instance
@@ -704,14 +769,20 @@ void setup() {
     // reset color to normal
     wSS.lblStatus.SetTextColor(DT_C_LIGHTGREEN);
 
-    // ??? Save configuration if necessary ?
+    // Save configuration to avoid re-calibration on restarts
+    File f = LittleFS.open(FPSTR(FILE_CONFIGURATION), "w");
 
-    // store data
-    /*File f = fileSystem->open(FPSTR(FILE_CONFIGURATION), "w");
     if (f) {
-      f.write((const unsigned char *)calData, 10);
+      DynamicJsonDocument JDoc{8192}; // more appropriate size ?
+      JsonObject joConfig = JDoc.to<JsonObject>();
+      BuildRunningConfig(joConfig);
+
+      // save config to file
+      serializeJson(JDoc, f);
+
+      // close the file
       f.close();
-    }*/
+    }
   }
 
   wSS.pbrProgress.SetProgress(70);
@@ -1023,11 +1094,6 @@ void loop() {
 
         }else if(!strcmp("cfgRD",cmd)){
           // configuration requested - build JSON and send back to client
-          //
-          // NB! when "String" values are added to JsonObject/Array - use c_str() (i.e. const char*) to prevent ArduinoJson from copying those.
-          //     It should be safe to do so: configuration string values are not modified from Async*** library thread.
-          //     As we are on the loop thread - nothing else can modify these strings.
-          //     As we are serializing into the Async*** buffer in the end there is no worry values will change before actually sent over WiFi
 
           // create outgoing JSON object
           DynamicJsonDocument jDocOut{8192}; // ??? appropriate size - especially for configuration file
@@ -1037,53 +1103,8 @@ void loop() {
           // add nested configuration object
           JsonObject joConfig = jDocOut.createNestedObject("config");
 
-          // add TFT information
-          JsonObject joTFT = joConfig.createNestedObject(FPSTR(JSCONF_TFT));
-          joTFT[FPSTR(JSCONF_POLL)] = Configuration.TFT.poll;
-          JsonArray jaTFT = joTFT.createNestedArray(FPSTR(JSCONF_TFT));
-          jaTFT.add(Configuration.TFT.data.tft[0]);
-          jaTFT.add(Configuration.TFT.data.tft[1]);
-          jaTFT.add(Configuration.TFT.data.tft[2]);
-
-          // add WiFi information
-          JsonObject joWiFi = joConfig.createNestedObject(FPSTR(JSCONF_WIFI));
-          joWiFi[FPSTR(JSCONF_WIFI_SSID)] = Configuration.WiFi.SSID.c_str(); // prevent copying string
-          joWiFi[FPSTR(JSCONF_WIFI_KEY)] = Configuration.WiFi.KEY.c_str(); // prevent copying string
-
-          // add PID information
-          JsonObject joPID = joConfig.createNestedObject(FPSTR(JSCONF_PID));
-          joPID[FPSTR(JSCONF_POLL)] = Configuration.PID.poll;
-          joPID[FPSTR(JSCONF_PID_KP)] = Configuration.PID.KP;
-          joPID[FPSTR(JSCONF_PID_KI)] = Configuration.PID.KI;
-          joPID[FPSTR(JSCONF_PID_KD)] = Configuration.PID.KD;
-
-          // add programs array if there are any programs in currently loaded configuration
-          if(Configuration.nPrograms > 0){
-            JsonArray jaPrograms = joConfig.createNestedArray(FPSTR(JSCONF_PROGRAMS));
-
-            // crate object in array for each program
-            for(int i = 0; i < Configuration.nPrograms; i++){
-              JsonObject joProgram = jaPrograms.createNestedObject();
-              TProgram* currProgram = Configuration.Programs[i];
-
-              // set current program name
-              joProgram[FPSTR(JSCONF_PROGRAM_NAME)] = currProgram->GetName().c_str(); // prevent copying string
-
-              // add steps array
-              JsonArray jaSteps = joProgram.createNestedArray(FPSTR(JSCONF_PROGRAM_STEPS));
-
-              // for each step create nested object and set values
-              for(int j = 0; j < currProgram->GetStepsTotal(); j++){
-                // create step and set values
-                JsonObject joStep = jaSteps.createNestedObject();
-                TProgramStep* currStep = currProgram->GetStep(j);
-
-                joStep[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] = currStep->GetTStart();
-                joStep[FPSTR(JSCONF_PROGRAM_STEP_TEND)] = currStep->GetTEnd();
-                joStep[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] = currStep->GetDuration();
-              }
-            }
-          }
+          // build running configuration
+          BuildRunningConfig(joConfig);
 
           // send out reply
           AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
