@@ -74,7 +74,10 @@ static const char LBL_STEPTIME[] PROGMEM      = "Step remaining: ";
 static const char LBL_TIMEREMAINING[] PROGMEM = "Program remaining: ";
 static const char LBL_DEGC[] PROGMEM = " C";
 
-// JSON elements
+// JSON message / configuration elements and defines
+#define JSON_BUFFER_MAX_SIZE 8192   // maximum message/buffer size
+#define JSON_DOCUMENT_MAX_SIZE 8192 // maximum size of JSON document allowed
+
 static const char JSCONF_POLL[] PROGMEM                   = "poll";
 
 static const char JSCONF_TFT[] PROGMEM                    = "TFT";
@@ -154,20 +157,21 @@ struct _sState {
 } State;
 
 /**
- * @brief Structure to handle incoming messages
+ * @brief Structure to handle incoming JSON messages
  * @details Structure holds all the information relevant to process request and prepare response
  *          over WebSocket.
- *          isValid field is used to mark message valid for processing in the main loop
- *          only WebSocket event handler is allowed to set this flag to true.
- *          only main loop is allowed to reset this flag to false
- *          flag is set volatile in order to prevent optimization/caching across different threads
+ *          Status field is used to mark message valid for processing in the main loop
+ *          WebSocket event handler is allowed to set Status to any value.
+ *          main loop is only allowed to reset status to EMPTY
+ *          field is set volatile in order to prevent optimization/caching across different threads
  * 
  */
+typedef enum {WSJSONMSG_EMPTY = 0, WSJSONMSG_INPROGRESS, WSJSONMSG_READY} WsJSONMsgStatus;
 struct _sWsJSONMsg {
-  volatile bool isValid = false; // mark volatile to make sure it is read explicitly upon access as structure can be accessed from another thread
+  volatile WsJSONMsgStatus status = WSJSONMSG_EMPTY; // mark volatile to make sure it is read explicitly upon access as structure can be accessed from another thread
   uint32_t      client_id = 0; // requesting client Id
-  size_t        datalen = 0;
-  char*         buffer = nullptr;
+  size_t        datalen = 0; // current data length 
+  char          buffer[JSON_BUFFER_MAX_SIZE];
 } gi_WsJSONMsg;
 
 /**
@@ -375,7 +379,6 @@ class cMainWindow : public DTWindow {
         State.StartStop = true;
       }
     }
-    Invalidate();
   }
 
   // overload HandleEvent function
@@ -641,32 +644,66 @@ void onWSEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
       if(info->len == 0) break;
 
       // reply "Busy" to client if message buffer is currently occupied with other mesage to process
-      // i.e. isValid set to true
-      if(gi_WsJSONMsg.isValid){
-        // send response
+      // i.e. isValid set to true or data length currently in buffer > 0 and is being written by another client
+      if(  gi_WsJSONMsg.status == WSJSONMSG_READY ||
+          (gi_WsJSONMsg.status == WSJSONMSG_INPROGRESS && gi_WsJSONMsg.client_id != client->id())
+        ){
+        // send BUSY response
         client->printf("{\"id\":\"ERR\",\"details\":\"Busy\"}");
         break;
       }
 
-      // TODO: handle fragmented messages
+      // at this point received data is allowed to be processed:
+      // 1) a complete new message that fits into exactly one incoming buffer with final bit set
+      // 2) a complete message that is split into several packets but fits into one complete frame
+      // 2) a frame of ongoing message that fits into exactly one incoming buffer
+      // 3) a packet of a frame - worst case scenario
+      //
+      // WebSocket protocol (RFC6455, 5.4) demands that FRAMES are delivered in the order they are sent out
+      // however it may seem that packets can be out of order !!!!
+      // in any case it should be checked that we can rebuild entire message for JSON parsing within the preallocated buffer
+      // of gi_WsJSONMsg set to JSON_BUFFER_MAX_SIZE at compile time
+      //
+      // OBSERVE:
+      // info->num   - is the number of the incoming frame (still can be out of order?) - no way to handle it as there is no way to know lengths of previous frames if out of order
+      // info->len   - is the length of the entire frame
+      // info->index - data offset within current frame
+      // len         - is the length of piece of data (packet) that should reside at a given offset(info->index) of a current frame
 
-      // try to allocate memory
-      gi_WsJSONMsg.buffer = (char *) malloc(info->len + 1); // account for 0 character in the end
-      if(!gi_WsJSONMsg.buffer){
-        // no memory is available
-        gi_WsJSONMsg.buffer = nullptr;
-        client->printf("{\"id\":\"ERR\",\"details\":\"No memory\"}");
+      // mark buffer as being in INPROGRESS state
+      gi_WsJSONMsg.status = WSJSONMSG_INPROGRESS;
+      // set current client id to prevent others from touching the buffer
+      gi_WsJSONMsg.client_id = client->id();
+
+      // check that we can fit message into the buffer with respect to already occupied space
+      if(gi_WsJSONMsg.datalen + info->len >= JSON_BUFFER_MAX_SIZE){
+        // we do not fit - reset the message buffer, discard message
+        gi_WsJSONMsg.datalen = 0;
+        gi_WsJSONMsg.client_id = 0;
+        gi_WsJSONMsg.status = WSJSONMSG_EMPTY;
+        // inform client of an error
+        client->printf("{\"id\":\"ERR\",\"details\":\"Message too big\"}");
         break;
       }
 
-      // copy data to message buffer. WARNIG - so far unfragmented messages are expected - add code to handle fragments and collect them into the whole message
-      memcpy(gi_WsJSONMsg.buffer, data, info->len);
-      gi_WsJSONMsg.buffer[info->len] = 0; // add 0 terminating character
+      // copy data to message buffer and adjust values for next fragment if expected
+      // gi_WsJSONMsg.datalen - is an offset of currently stored data from previous frames
+      // info->index - is an offset of current packet data
+      // len is the length of current packet buffer
+      memcpy( &gi_WsJSONMsg.buffer[gi_WsJSONMsg.datalen + info->index], data, len); // copy data
 
-      // message is in the buffer - add client information and toggle validity flag
-      gi_WsJSONMsg.datalen = info->len + 1; // don't forget added 0 character
-      gi_WsJSONMsg.client_id = client->id();
-      gi_WsJSONMsg.isValid = true;
+      // check whether frame and, maybe entire message, is ready
+      if( (info->index + len) == info->len ){
+        // this was the final packet out of several packets in the frame
+        // adjust data length of rebuilt message
+        gi_WsJSONMsg.datalen += info->len;
+
+        if(info->final){
+          // this was also the final message frame - ready to hand it over to main loop
+          gi_WsJSONMsg.buffer[gi_WsJSONMsg.datalen] = 0; // add terminating character for string operations
+          gi_WsJSONMsg.status = WSJSONMSG_READY; // from here it will be picked by the main thread
+        }
+      }
       break;
     } // done handling WS_EVT_DATA
   } // end of switch(type): done handling WebSocket event
@@ -725,8 +762,8 @@ void setup() {
     if (f) {
       // try deserializing from JSON config file
       
-      // try to book an object of as many bytes as configuration file is
-      DynamicJsonDocument JDoc{f.size()};
+      // try parsing JSON
+      DynamicJsonDocument JDoc{JSON_DOCUMENT_MAX_SIZE};
       DeserializationError err = deserializeJson(JDoc, f);
 
       // parese JSON if it was deserialized successfully
@@ -773,7 +810,7 @@ void setup() {
     File f = LittleFS.open(FPSTR(FILE_CONFIGURATION), "w");
 
     if (f) {
-      DynamicJsonDocument JDoc{8192}; // more appropriate size ?
+      DynamicJsonDocument JDoc{JSON_DOCUMENT_MAX_SIZE};
       JsonObject joConfig = JDoc.to<JsonObject>();
       BuildRunningConfig(joConfig);
 
@@ -813,12 +850,12 @@ void setup() {
   gi_WebSocket.onEvent(onWSEvent);
   gi_WebServer.addHandler(&gi_WebSocket);
 
-  // TEMP: add hello hook to root - remove after testing
-  //gi_WebServer.on(FILE_WEB_ROOT, [](AsyncWebServerRequest *request) { request->send(200, FPSTR(FILE_WEB_CT_TXT), F("Hello async from controller")); });
-  // TEMP? add hook to /heap path - show free heap for monitoring purposes
+  // add hook to /heap path - show free heap for monitoring purposes
   gi_WebServer.on(PATH_WEB_HEAP, HTTP_GET, [](AsyncWebServerRequest *request){ request->send(200, FPSTR(FILE_WEB_CT_TXT), F("Free heap: ") + String(ESP.getFreeHeap())); });
+  
   // serve files from filesystem with default being index.html
   gi_WebServer.serveStatic(PATH_WEB_ROOT, LittleFS, PATH_WEB_ROOT).setDefaultFile(FILE_WEB_INDEX);
+  
   // add response hook on invalid paths HTTP: 404
   gi_WebServer.onNotFound([](AsyncWebServerRequest *request) { request->send(404, FPSTR(FILE_WEB_CT_TXT), F("Nothing found :(")); });
 
@@ -980,13 +1017,13 @@ void loop() {
 
     } // end if(isPgmRunning)
 
-    // temp? - show ip address in the status bar
-    // find some other solution in order to let user know where to connect
+    // temp? - show ip address in the status bar every 10 seconds?
+    // 
     (wnd.lblStatus = F("IP address: ")) += WiFi.localIP().toString();
     
     // Send update to all possible connected clients sending them the state
     if(gi_WebSocket.count()) {
-      StaticJsonDocument<1024> jDoc; // adjust capacity to something more appropriate for status JSON document
+      DynamicJsonDocument jDoc(1024); // adjust capacity to something more appropriate for status JSON document
       
       // add message id
       jDoc["id"] = "STS";
@@ -1041,11 +1078,11 @@ void loop() {
   // WebSocket message processing
   // should happen without any timer checks so that we are making responses available for async handler asap
   // should be last in a chain of actions in the main loop
-  if(gi_WsJSONMsg.isValid){
+  if(gi_WsJSONMsg.status == WSJSONMSG_READY){
     // read message in case data available is > 0
     if( gi_WsJSONMsg.datalen > 0 ){
       // create an object - same as data length
-      DynamicJsonDocument jDocInc{gi_WsJSONMsg.datalen};
+      DynamicJsonDocument jDocInc{JSON_DOCUMENT_MAX_SIZE};
       DeserializationError err = deserializeJson(jDocInc,gi_WsJSONMsg.buffer);
 
       if(!err){
@@ -1133,14 +1170,9 @@ void loop() {
 
     // so far drop incoming message silently if it was malformed
 
-    // reset message buffer to accomodate new message
-    if(gi_WsJSONMsg.buffer != nullptr){
-      free(gi_WsJSONMsg.buffer); // do it earlier maybe to make memory available for outgoing JSON message ?
-      gi_WsJSONMsg.buffer = nullptr;
-    }
     gi_WsJSONMsg.datalen = 0;
     gi_WsJSONMsg.client_id = 0;
-    gi_WsJSONMsg.isValid = false; // mark as available for accomodating new message after all cleanup activities that may take time
+    gi_WsJSONMsg.status = WSJSONMSG_EMPTY; // mark as available for accomodating new message after all cleanup activities that may take time
   } // done handling incoming message
 
   // and finally redraw screen if needed

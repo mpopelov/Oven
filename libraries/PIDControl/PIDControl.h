@@ -71,7 +71,7 @@ class PIDControlBasic : public PIDControl
         double _Kd;
         double _e;
         double _i;
-}
+};
 
 /**
  * @brief A simple PID control implementation with integral loop
@@ -94,7 +94,7 @@ class PIDControlSimple : public PIDControl
         double _e0;
         double _e1;
         double _e2;
-}
+};
 
 /**
  * @brief PID control implementation with infinite impulse response
