@@ -173,11 +173,11 @@ struct _sWsJSONMsg {
 /**
  * Global instances
  */
-TFT_eSPI          gi_Tft{};              // TFT display driver
-LittleFSConfig    gi_FSConfig{};   // file system configuration
+TFT_eSPI          gi_Tft{};                         // TFT display driver
+LittleFSConfig    gi_FSConfig{};                    // file system configuration
 
 TSensor           gi_TS{D2, false};                 // MAX31855 K-type temperature sensor instance
-PIDControl*       gp_PID = nullptr;                 // pid control instance
+PIDControlIIR     gp_PID{};                         // pid control instance
 
 AsyncWebServer    gi_WebServer{80};                 // a web server instance
 AsyncWebSocket    gi_WebSocket{FPSTR(PATH_WEB_WS)}; // web socket for communicating with OvenWEB
@@ -870,7 +870,7 @@ void loop() {
       // ... but program is not running: check if we can start or reset flag otherwise
       if(State.ActiveProgram != nullptr){
         // active program exists - prepare and start it
-        gp_PID = new PIDControl( Configuration.PID.KP, Configuration.PID.KI, Configuration.PID.KD, Configuration.PID.poll);
+        gp_PID.Reset( Configuration.PID.KP, Configuration.PID.KI, Configuration.PID.KD, Configuration.PID.poll);
         State.tSP = State.ActiveProgram->Begin();
         State.isPgmRunning = true;
 
@@ -893,12 +893,6 @@ void loop() {
       // reset active program but leave it selected - active program can't be nullptr - we should not have started
       State.ActiveProgram->Reset();
 
-      // reset PID control
-      if(gp_PID != nullptr){
-        delete gp_PID;
-        gp_PID = nullptr;
-      }
-
       State.U = 0.0; // reset controlling signal
       State.isPgmRunning = false;
 
@@ -920,7 +914,7 @@ void loop() {
   //     to configuration from Web interface.
   //     If the program is not running (has stopped) - value from running config is used
   //
-  unsigned long _PIDPOLL = State.isPgmRunning ? gp_PID->poll : Configuration.PID.poll;
+  unsigned long _PIDPOLL = State.isPgmRunning ? gp_PID.poll : Configuration.PID.poll;
   if ( ticks - State.ticks_TSENSOR >= _PIDPOLL )
   {
     // read temperature and update values on screen
@@ -962,7 +956,7 @@ void loop() {
         wnd.lblStatus = F("Program terminating...");
       }else{
         // do common staff - calculate controlling signal and turn relay on/off accordingly
-        State.U = gp_PID->Evaluate(State.tSP, State.tProbe, State.U);
+        State.U = gp_PID.Evaluate(State.tSP, State.tProbe, State.U);
         
         State.isRelayOn = (State.U > 0.0);
         digitalWrite(D1, (State.isRelayOn ? HIGH : LOW));
