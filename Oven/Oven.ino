@@ -125,6 +125,7 @@ struct _sConfiguration {
     double KP = DEFAULT_PID_PRM;
     double KI = DEFAULT_PID_PRM;
     double KD = DEFAULT_PID_PRM;
+    double TOL = DEFAULT_PID_PRM;
   } PID;
 
   int nPrograms = 0;
@@ -181,7 +182,10 @@ TFT_eSPI          gi_Tft{};                         // TFT display driver
 LittleFSConfig    gi_FSConfig{};                    // file system configuration
 
 TSensor           gi_TS{D2, false};                 // MAX31855 K-type temperature sensor instance
-PIDControlIIR     gp_PID{};                         // pid control instance
+// Enable only one PID control instance
+PIDControlBasic   gp_PID{};
+//PIDControlSimple  gp_PID{};
+//PIDControlIIR     gp_PID{};
 
 AsyncWebServer    gi_WebServer{80};                 // a web server instance
 AsyncWebSocket    gi_WebSocket{FPSTR(PATH_WEB_WS)}; // web socket for communicating with OvenWEB
@@ -486,6 +490,7 @@ void UpdateRunningConfig(JsonObject& joConfig, bool startup){
     Configuration.PID.KP = obj[FPSTR(JSCONF_PID_KP)] | DEFAULT_PID_PRM;
     Configuration.PID.KI = obj[FPSTR(JSCONF_PID_KI)] | DEFAULT_PID_PRM;
     Configuration.PID.KD = obj[FPSTR(JSCONF_PID_KD)] | DEFAULT_PID_PRM;
+    Configuration.PID.TOL = obj["TOL"] | DEFAULT_PID_PRM;
   }
   if(!startup) yield();
 
@@ -575,6 +580,7 @@ void BuildRunningConfig(JsonObject& joConfig){
   joPID[FPSTR(JSCONF_PID_KP)] = Configuration.PID.KP;
   joPID[FPSTR(JSCONF_PID_KI)] = Configuration.PID.KI;
   joPID[FPSTR(JSCONF_PID_KD)] = Configuration.PID.KD;
+  joPID["TOL"] = Configuration.PID.TOL;
 
   // add programs array if there are any programs in currently loaded configuration
   if(Configuration.nPrograms > 0){
@@ -874,6 +880,8 @@ void setup() {
 } // end of setup()
 
 #define BUFF_LEN 32
+#define STS_ROTATE_EVERY 10
+static int stsrtr = 0;
 
 /**
  * @brief Main controller loop function
@@ -995,7 +1003,13 @@ void loop() {
         // do common staff - calculate controlling signal and turn relay on/off accordingly
         State.U = gp_PID.Evaluate(State.tSP, State.tProbe, State.U);
         
-        State.isRelayOn = (State.U > 0.0);
+        // check whether relay needs to be turned on or off
+        /* if( Configuration.PID.TOL - abs(State.U) < 0.0 ){
+          State.isRelayOn = (State.U > 0.0); // beyond tolerance - adjust relay state
+        }else{
+          State.isRelayOn = false; // within tolerance - turn off relay
+        } */
+        State.isRelayOn = !State.isRelayOn;
         digitalWrite(D1, (State.isRelayOn ? HIGH : LOW));
 
         // update labels' values
@@ -1018,8 +1032,13 @@ void loop() {
     } // end if(isPgmRunning)
 
     // temp? - show ip address in the status bar every 10 seconds?
-    // 
-    (wnd.lblStatus = F("IP address: ")) += WiFi.localIP().toString();
+    //
+    if(stsrtr == STS_ROTATE_EVERY) {
+      stsrtr = 0;
+      (wnd.lblStatus = F("IP address: ")) += WiFi.localIP().toString();
+    }else{
+      stsrtr++;
+    }
     
     // Send update to all possible connected clients sending them the state
     if(gi_WebSocket.count()) {
