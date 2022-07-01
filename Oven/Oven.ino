@@ -99,6 +99,9 @@ static const char JSCONF_PROGRAM_STEP_TSTART[] PROGMEM    = "tStart";
 static const char JSCONF_PROGRAM_STEP_TEND[] PROGMEM      = "tEnd";
 static const char JSCONF_PROGRAM_STEP_DURATION[] PROGMEM  = "duration";
 
+static const char JSON_RESPONSE_TEMPLATE_OK[]             = "{\"id\":\"OK\",\"details\":\"%s\"}";
+static const char JSON_RESPONSE_TEMPLATE_ERR[]            = "{\"id\":\"ERR\",\"details\":\"%s\"}";
+
 
 /**
  * @brief Global configuration
@@ -189,6 +192,8 @@ PIDControlBasic   gp_PID{};
 
 AsyncWebServer    gi_WebServer{80};                 // a web server instance
 AsyncWebSocket    gi_WebSocket{FPSTR(PATH_WEB_WS)}; // web socket for communicating with OvenWEB
+
+StaticJsonDocument<JSON_DOCUMENT_MAX_SIZE> gi_JDoc;
 
 
 
@@ -655,7 +660,7 @@ void onWSEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
           (gi_WsJSONMsg.status == WSJSONMSG_INPROGRESS && gi_WsJSONMsg.client_id != client->id())
         ){
         // send BUSY response
-        client->printf("{\"id\":\"ERR\",\"details\":\"Busy\"}");
+        client->printf(JSON_RESPONSE_TEMPLATE_ERR, "Busy");
         break;
       }
 
@@ -688,7 +693,7 @@ void onWSEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
         gi_WsJSONMsg.client_id = 0;
         gi_WsJSONMsg.status = WSJSONMSG_EMPTY;
         // inform client of an error
-        client->printf("{\"id\":\"ERR\",\"details\":\"Message too big\"}");
+        client->printf(JSON_RESPONSE_TEMPLATE_ERR, "Message too big");
         break;
       }
 
@@ -769,12 +774,15 @@ void setup() {
       // try deserializing from JSON config file
       
       // try parsing JSON
-      DynamicJsonDocument JDoc{JSON_DOCUMENT_MAX_SIZE};
-      DeserializationError err = deserializeJson(JDoc, f);
+      //DynamicJsonDocument JDoc{JSON_DOCUMENT_MAX_SIZE};
+      //DeserializationError err = deserializeJson(JDoc, f);
+
+      DeserializationError err = deserializeJson(gi_JDoc, f);
 
       // parese JSON if it was deserialized successfully
       if(!err){
-        JsonObject joConfig = JDoc.as<JsonObject>();
+        //JsonObject joConfig = JDoc.as<JsonObject>();
+        JsonObject joConfig = gi_JDoc.as<JsonObject>();
         UpdateRunningConfig(joConfig, true);
       }else{
         // an error occured parsing JSON
@@ -816,12 +824,14 @@ void setup() {
     File f = LittleFS.open(FPSTR(FILE_CONFIGURATION), "w");
 
     if (f) {
-      DynamicJsonDocument JDoc{JSON_DOCUMENT_MAX_SIZE};
-      JsonObject joConfig = JDoc.to<JsonObject>();
+      //DynamicJsonDocument JDoc{JSON_DOCUMENT_MAX_SIZE};
+      //JsonObject joConfig = JDoc.to<JsonObject>();
+      JsonObject joConfig = gi_JDoc.to<JsonObject>();
       BuildRunningConfig(joConfig);
 
       // save config to file
-      serializeJson(JDoc, f);
+      //serializeJson(JDoc, f);
+      serializeJson(gi_JDoc, f);
 
       // close the file
       f.close();
@@ -1042,13 +1052,16 @@ void loop() {
     
     // Send update to all possible connected clients sending them the state
     if(gi_WebSocket.count()) {
-      DynamicJsonDocument jDoc(1024); // adjust capacity to something more appropriate for status JSON document
+      //DynamicJsonDocument jDoc(1024); // adjust capacity to something more appropriate for status JSON document
+      gi_JDoc.clear();
       
       // add message id
-      jDoc["id"] = "STS";
+      //jDoc["id"] = "STS";
+      gi_JDoc["id"] = "STS";
       
       // add status and populate fields
-      JsonObject joStatus = jDoc.createNestedObject("status");
+      //JsonObject joStatus = jDoc.createNestedObject("status");
+      JsonObject joStatus = gi_JDoc.createNestedObject("status");
       joStatus["tPB"] = State.tProbe;
       joStatus["tAM"] = State.tAmbient;
       joStatus["tSP"] = State.tSP;
@@ -1082,10 +1095,12 @@ void loop() {
       }
 
       // send resulting JSON to clients
-      size_t jdLen = measureJson(jDoc); // length of the resulting condenced JSON excluding 0-terminator
+      //size_t jdLen = measureJson(jDoc); // length of the resulting condenced JSON excluding 0-terminator
+      size_t jdLen = measureJson(gi_JDoc);
       AsyncWebSocketMessageBuffer * buffer = gi_WebSocket.makeBuffer(jdLen); // allocates buffer that includes 0-terminator
       if(buffer){
-        serializeJson(jDoc, buffer->get(), jdLen + 1); // note accounting for 0-terminator in the length of the buffer provided to function
+        //serializeJson(jDoc, buffer->get(), jdLen + 1); // note accounting for 0-terminator in the length of the buffer provided to function
+        serializeJson(gi_JDoc, buffer->get(), jdLen + 1);
         gi_WebSocket.textAll(buffer);
       }
     }
@@ -1101,43 +1116,46 @@ void loop() {
     // read message in case data available is > 0
     if( gi_WsJSONMsg.datalen > 0 ){
       // create an object - same as data length
-      DynamicJsonDocument jDocInc{JSON_DOCUMENT_MAX_SIZE};
-      DeserializationError err = deserializeJson(jDocInc,gi_WsJSONMsg.buffer);
+      //DynamicJsonDocument jDocInc{JSON_DOCUMENT_MAX_SIZE};
+      //DeserializationError err = deserializeJson(jDocInc,gi_WsJSONMsg.buffer);
+      DeserializationError err = deserializeJson(gi_JDoc,gi_WsJSONMsg.buffer);
 
       if(!err){
 
-        const char* cmd = jDocInc["id"];
+        //const char* cmd = jDocInc["id"];
+        const char* cmd = gi_JDoc["id"];
 
         // parse JSON command and prepare reply
         if(!strcmp("start",cmd)){
           // "start" command received - toggle start and send reply
           State.StartStop = true;
           AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
-          if(wsc != nullptr) wsc->printf("{\"id\":\"OK\",\"details\":\"Start signal sent\"}");
+          if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_OK, "Start signal sent");
 
         }else if(!strcmp("stop",cmd)){
           // "stop" command received - toggle stop and send reply
           State.StartStop = false;
           AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
-          if(wsc != nullptr) wsc->printf("{\"id\":\"OK\",\"details\":\"Stop signal sent\"}");
+          if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_OK, "Stop signal sent");
 
         }else if(!strcmp("cfgWR",cmd)){
           // configuration submitted from web interface - try building and saving configuration
 
           // jDocInc should contain msg object with configuration set
-          JsonObject joConfig = jDocInc["msg"];
+          //JsonObject joConfig = jDocInc["msg"];
+          JsonObject joConfig = gi_JDoc["msg"];
           if(joConfig){
             // msg object present
             UpdateRunningConfig(joConfig, false);
 
             // notify client that configuration was modified
             AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
-            if(wsc != nullptr) wsc->printf("{\"id\":\"OK\",\"details\":\"Configuration modified\"}");
+            if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_OK, "Configuration modified");
 
           }else{
             // malformed request
             AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
-            if(wsc != nullptr) wsc->printf("{\"id\":\"ERR\",\"details\":\"Malformed JSON\"}");
+            if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_ERR, "Malformed JSON");
           }
 
           // done parsing incoming configuration
@@ -1146,12 +1164,15 @@ void loop() {
           // configuration requested - build JSON and send back to client
 
           // create outgoing JSON object
-          DynamicJsonDocument jDocOut{8192}; // ??? appropriate size - especially for configuration file
+          //DynamicJsonDocument jDocOut{8192}; // ??? appropriate size - especially for configuration file
+          gi_JDoc.clear();
 
-          jDocOut["id"] = "OK";
+          //jDocOut["id"] = "OK";
+          gi_JDoc["id"] = "OK";
 
           // add nested configuration object
-          JsonObject joConfig = jDocOut.createNestedObject("config");
+          //JsonObject joConfig = jDocOut.createNestedObject("config");
+          JsonObject joConfig = gi_JDoc.createNestedObject("config");
 
           // build running configuration
           BuildRunningConfig(joConfig);
@@ -1160,26 +1181,99 @@ void loop() {
           AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
           // make sure client is still valid and can be communicated to
           if( wsc != nullptr ){
-            size_t jdLenOut = measureJson(jDocOut);
+            //size_t jdLenOut = measureJson(jDocOut);
+            size_t jdLenOut = measureJson(gi_JDoc);
             AsyncWebSocketMessageBuffer * buffer = gi_WebSocket.makeBuffer(jdLenOut);
             if(buffer){
-              serializeJson(jDocOut, buffer->get(), jdLenOut + 1);
+              //serializeJson(jDocOut, buffer->get(), jdLenOut + 1);
+              serializeJson(gi_JDoc, buffer->get(), jdLenOut + 1);
               wsc->text(buffer);
             }
           }
 
           // done sending active configuration. jDocOut should be destructed here
 
+        }else if(!strcmp("cfgSV",cmd)){
+          // write configuration to flash memory
+          // Save configuration to avoid re-calibration on restarts
+          File f = LittleFS.open(FPSTR(FILE_CONFIGURATION), "w");
+
+          if (f) {
+            //DynamicJsonDocument JDoc{JSON_DOCUMENT_MAX_SIZE};
+            //JsonObject joConfig = JDoc.to<JsonObject>();
+            JsonObject joConfig = gi_JDoc.to<JsonObject>();
+            BuildRunningConfig(joConfig);
+
+            // save config to file
+            //serializeJson(JDoc, f);
+            serializeJson(gi_JDoc, f);
+
+            // close the file
+            f.close();
+
+            // notify client that configuration was saved to flash
+            AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+            if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_OK, "Configuration saved to flash");
+          }else{
+            // notify client that configuration was modified
+            AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+            if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_ERR, "Flash write failed");
+          }
+        }else if(!strcmp("setPG",cmd)){
+          // set program to be run
+          // make sure controller is not running program and no attempt to start program was made
+          if(!State.isPgmRunning && !State.StartStop){
+            // msg element should contain program name - try to find it
+            const char* pgmName = gi_JDoc["msg"];
+            // ----------------
+            if(pgmName != nullptr){
+              int i = 0;
+              for(i = 0; i < Configuration.nPrograms; i++){
+                // compare program name to one supplied in message
+                if(!strcmp(pgmName, Configuration.Programs[i]->GetName().c_str())){
+                  // found a program
+                  // delete active program if it was set
+                  if(State.ActiveProgram != nullptr) delete State.ActiveProgram;
+
+                  // create a copy of selected program
+                  State.ActiveProgram = new TProgram(*Configuration.Programs[i]); // invoke copy constructor
+
+                  // set selected program details
+                  wnd.lblProgramName = State.ActiveProgram->GetName();
+                  wnd.lblStepTotal = String(State.ActiveProgram->GetStepsTotal());
+                  wnd.lblStepNumber = String(State.ActiveProgram->GetStepsCurrent());
+
+                  // show initial duration of selected program
+                  unsigned long t = State.ActiveProgram->GetDurationTotal();
+                  snprintf(buff, BUFF_LEN, "%02lu:%02lu:%02lu", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
+                  wnd.lblProgramTimeValue = buff;
+                  // end of adjusting controls
+                  AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+                  if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_OK, "Program selected");
+
+                  break; // break for() loop
+                }
+                if(i == Configuration.nPrograms){
+                  AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+                  if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_ERR, "Program not found");
+                }
+              }
+            }else{
+              AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+              if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_ERR, "Empty program");
+            }
+            // -----------------
+          }
         }else{
           // unknown command
           AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
-          if(wsc != nullptr) wsc->printf("{\"id\":\"ERR\",\"details\":\"Unknown command\"}");
+          if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_ERR, "Unknown command");
         }
 
       }else{
         // unable to deserialize JSON
         AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
-        if(wsc != nullptr) wsc->printf("{\"id\":\"ERR\",\"details\":\"Malformed JSON\"}");
+        if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_ERR, "Malformed JSON");
       } // end if(!err)
 
       // jDocInc goes out of scope - should be destructed here
