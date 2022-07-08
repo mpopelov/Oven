@@ -11,7 +11,8 @@
         "poll" : 1000,
         "KP" : 1.0,
         "KI" : 1.1,
-        "KD" : 1.2
+        "KD" : 1.2,
+        "TOL": 2.0
     },
     "Programs" : [
         { "Name" : "Testing PID",

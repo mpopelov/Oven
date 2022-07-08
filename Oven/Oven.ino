@@ -91,6 +91,7 @@ static const char JSCONF_PID[] PROGMEM                    = "PID";
 static const char JSCONF_PID_KP[] PROGMEM                 = "KP";
 static const char JSCONF_PID_KI[] PROGMEM                 = "KI";
 static const char JSCONF_PID_KD[] PROGMEM                 = "KD";
+static const char JSCONF_PID_TOLERANCE[] PROGMEM          = "TOL";
 
 static const char JSCONF_PROGRAMS[] PROGMEM               = "Programs";
 static const char JSCONF_PROGRAM_NAME[] PROGMEM           = "Name";
@@ -495,7 +496,7 @@ void UpdateRunningConfig(JsonObject& joConfig, bool startup){
     Configuration.PID.KP = obj[FPSTR(JSCONF_PID_KP)] | DEFAULT_PID_PRM;
     Configuration.PID.KI = obj[FPSTR(JSCONF_PID_KI)] | DEFAULT_PID_PRM;
     Configuration.PID.KD = obj[FPSTR(JSCONF_PID_KD)] | DEFAULT_PID_PRM;
-    Configuration.PID.TOL = obj["TOL"] | DEFAULT_PID_PRM;
+    Configuration.PID.TOL = obj[FPSTR(JSCONF_PID_TOLERANCE)] | DEFAULT_PID_PRM;
   }
   if(!startup) yield();
 
@@ -585,7 +586,7 @@ void BuildRunningConfig(JsonObject& joConfig){
   joPID[FPSTR(JSCONF_PID_KP)] = Configuration.PID.KP;
   joPID[FPSTR(JSCONF_PID_KI)] = Configuration.PID.KI;
   joPID[FPSTR(JSCONF_PID_KD)] = Configuration.PID.KD;
-  joPID["TOL"] = Configuration.PID.TOL;
+  joPID[FPSTR(JSCONF_PID_TOLERANCE)] = Configuration.PID.TOL;
 
   // add programs array if there are any programs in currently loaded configuration
   if(Configuration.nPrograms > 0){
@@ -1014,12 +1015,12 @@ void loop() {
         State.U = gp_PID.Evaluate(State.tSP, State.tProbe, State.U);
         
         // check whether relay needs to be turned on or off
-        /* if( Configuration.PID.TOL - abs(State.U) < 0.0 ){
+        if( Configuration.PID.TOL - abs(State.U) < 0.0 ){
           State.isRelayOn = (State.U > 0.0); // beyond tolerance - adjust relay state
         }else{
           State.isRelayOn = false; // within tolerance - turn off relay
-        } */
-        State.isRelayOn = !State.isRelayOn;
+        }
+        //State.isRelayOn = !State.isRelayOn;
         digitalWrite(D1, (State.isRelayOn ? HIGH : LOW));
 
         // update labels' values
