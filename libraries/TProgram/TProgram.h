@@ -14,6 +14,9 @@
 
 #include <Arduino.h>
 
+#define TPGM_NAME_LEN   32  // length of program name
+#define TPGM_STEPS_MAX  10  // maximun number of steps per program
+
 
 /**
  * @brief Class describing one program step.
@@ -65,62 +68,51 @@ class TProgramStep
 class TProgram
 {
     public:
-     TProgram(int numSteps, String name)
-     : _name(name), _timeElapsed(0), _timeElapsedStep(0), _timeLast(0), _totalDuration(0), _idx(0), _nSteps(numSteps)
+     TProgram()
+     : _timeElapsed(0), _timeElapsedStep(0), _timeLast(0), _totalDuration(0), _idx(0), _nSteps(0)
      {
-         if(_nSteps > 0)
-            _steps = new TProgramStep[_nSteps];
-        else
-            _steps = nullptr;
-     }
-
-     // copy constructor to create disconnected copy for active program to run
-     TProgram(const TProgram& p)
-     : _name(p._name), _timeElapsed(p._timeElapsed), _timeElapsedStep(p._timeElapsedStep), _timeLast(p._timeLast), _totalDuration(p._totalDuration), _idx(p._idx), _nSteps(p._nSteps)
-     {
-        // copy steps
-        if(_nSteps > 0){
-            _steps = new TProgramStep[_nSteps];
-            for(int i = 0; i < _nSteps; i++) _steps[i] = p._steps[i];
-        } else _steps = nullptr;
-     }
-
-     ~TProgram()
-     {
-         if(_nSteps > 0) delete []_steps;
+        _name[0] = 0;
      }
 
      // initialization routine for steps in the program
      bool AddStep(double T_s, double T_e, unsigned long d);
 
      // runtime routines
+     void   Clear() {               // clear the program making it invalid;
+        _name[0] = 0;
+        _timeElapsed = 0;
+        _timeElapsedStep = 0;
+        _timeLast = 0;
+        _totalDuration = 0;
+        _idx = 0;
+        _nSteps = 0;
+     }
+     bool   IsValid() { return _nSteps > 0; } // verify if the program is valid and can be run
      double Begin();                // start executing the program
      double CalculateSetPoint();    // calculate current program SetPoint
      void   Reset();                // reset program
 
-     // property getters
-     const String&       GetName() { return _name; }; // return program name
-     int                 GetStepsTotal() { return _nSteps; }    // return total number of steps in control program
-     int                 GetStepsCurrent() { return _idx + 1; } // return current step of the program in human acceptable form (i.e. starting with 1)
-     unsigned long       GetDurationTotal() { return _totalDuration; }  // return precalculated total duration of the program
-     unsigned long       GetDurationElapsed() { return _timeElapsed; }  // return time elapsed since program start
-     unsigned long       GetDurationElapsedStep() { return _timeElapsedStep; }  // return time elapsed within current step
-     TProgramStep* GetStep(int i) { if(i>=0 && i<_nSteps) return &(_steps[i]); else return nullptr; } //return step #i
+     // property getters / setters
+     const char*    SetName(const char* name) { strncpy(_name, name, TPGM_NAME_LEN-1); _name[TPGM_NAME_LEN] = 0; return _name; } // set program name
+     const char*    GetName() { return _name; } // return program name
+     int            GetStepsTotal() { return _nSteps; }    // return total number of steps in control program
+     int            GetStepsCurrent() { return _idx; } // return current step of the program
+     unsigned long  GetDurationTotal() { return _totalDuration; }  // return precalculated total duration of the program
+     unsigned long  GetDurationElapsed() { return _timeElapsed; }  // return time elapsed since program start
+     unsigned long  GetDurationElapsedStep() { return _timeElapsedStep; }  // return time elapsed within current step
+     TProgramStep*  GetStep(int i) { if(i>=0 && i<_nSteps) return &(_steps[i]); else return nullptr; } //return step #i
 
     private:
-     String         _name;          // program human readable name
-     unsigned long  _timeElapsed;   // elapsed time from program start in milliseconds
-     unsigned long  _timeElapsedStep; // time elapsed within the step
-     unsigned long  _timeLast;      // timestamp of last SetPoint calculation to measure time offsets
-     unsigned long  _totalDuration; // precalculated value of total program duration
+     char           _name[TPGM_NAME_LEN];   // program human readable name
+     unsigned long  _timeElapsed;           // elapsed time from program start in milliseconds
+     unsigned long  _timeElapsedStep;       // time elapsed within the step
+     unsigned long  _timeLast;              // timestamp of last SetPoint calculation to measure time offsets
+     unsigned long  _totalDuration;         // precalculated value of total program duration
 
-     int            _idx;           // current step index
+     int            _idx;                   // current step index
 
-     const int      _nSteps;        // total number of steps
-     TProgramStep*  _steps;         // arrays of steps
-
-     // prevent copying the class
-     TProgram& operator=(const TProgram& p) = delete;
+     int            _nSteps;                // total number of initialized steps: <= TPGM_STEPS_MAX
+     TProgramStep   _steps[TPGM_STEPS_MAX]; // array of steps
 };
 
 /**

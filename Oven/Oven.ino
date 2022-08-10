@@ -47,6 +47,8 @@
 #define DEFAULT_PID_POLL 1000   // default PID polling interval
 #define DEFAULT_PID_PRM  1.0    // defailt value for PID coeffitients
 
+#define DEFAULT_MAX_PROGRAMS 10 // maximum number of different programs a controller can save im memory
+
 /**
  * Global string constants
  */
@@ -133,7 +135,7 @@ struct _sConfiguration {
   } PID;
 
   int nPrograms = 0;
-  TProgram** Programs = nullptr;
+  TProgram Programs[DEFAULT_MAX_PROGRAMS];
 
 } Configuration;
 
@@ -148,7 +150,7 @@ struct _sState {
   double tSP = NAN;                           // current set point temperature
   double U = 0.0;                             // current controlling signal value
 
-  TProgram* volatile ActiveProgram = nullptr; // current active program
+  TProgram ActiveProgram;                     // current active program
 
   unsigned long ticks_TS = 0;                 // timestamp of last touchscreen polling
   unsigned long ticks_TSENSOR = 0;            // timestamp of last temperature sensor polling
@@ -250,7 +252,7 @@ class cPgmSelectWindow : public DTWindow {
     AddControl(&btnDown);
     AddControl(&selProgs);
     if(Configuration.nPrograms > 0 && Configuration.Programs != nullptr)
-      for(int idx=0; idx < Configuration.nPrograms; idx++) selProgs.AddItem(idx, Configuration.Programs[idx]->GetName());
+      for(int idx=0; idx < Configuration.nPrograms; idx++) selProgs.AddItem(idx, Configuration.Programs[idx].GetName());
   }
 
   // callbacks for buttons
@@ -342,20 +344,17 @@ class cMainWindow : public DTWindow {
       if(!State.isPgmRunning){
         uint16_t _pgmIdx = SWnd->selProgs.GetSelected();
         if(_pgmIdx < Configuration.nPrograms){
-          // delete active program if it was there
-          if(State.ActiveProgram != nullptr) delete State.ActiveProgram;
-
           // create a copy of selected program
-          State.ActiveProgram = new TProgram(*Configuration.Programs[_pgmIdx]); // invoke copy constructor
+          State.ActiveProgram = Configuration.Programs[_pgmIdx];
 
           // set selected program details
-          lblProgramName = State.ActiveProgram->GetName();
-          lblStepTotal = String(State.ActiveProgram->GetStepsTotal());
-          lblStepNumber = String(State.ActiveProgram->GetStepsCurrent());
+          lblProgramName = State.ActiveProgram.GetName();
+          lblStepTotal = String(State.ActiveProgram.GetStepsTotal());
+          lblStepNumber = String(State.ActiveProgram.GetStepsCurrent());
 
           // show initial duration of selected program
           char buff[12];
-          unsigned long t = State.ActiveProgram->GetDurationTotal();
+          unsigned long t = State.ActiveProgram.GetDurationTotal();
           snprintf(buff, 12, "%02lu:%02lu:%02lu", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
           lblProgramTimeValue = buff;
           // end of adjusting controls
@@ -383,7 +382,7 @@ class cMainWindow : public DTWindow {
       State.StartStop = false;
     }else{
       // false - signal main loop to start the program
-      if(State.ActiveProgram != nullptr){
+      if(State.ActiveProgram.IsValid()){
         // only start things if there is an active program selected
         // raise the flag and signal main loop to start executing
         State.StartStop = true;
@@ -503,53 +502,40 @@ void UpdateRunningConfig(JsonObject& joConfig, bool startup){
   // d. read programs
   if( JsonArray parr = joConfig[FPSTR(JSCONF_PROGRAMS)] ){
     // Programs section is present in the document
-    // build a separate list of new incoming programs to replace in configuration afterwards
     int nPrograms = parr.size();
-    if(nPrograms > 0){
-      // array contains elements
-      TProgram** Programs = new TProgram*[nPrograms];
+    // limit the number of pregrams that might be in the configuration file to built-in max number of programs
+    nPrograms = nPrograms > DEFAULT_MAX_PROGRAMS ? DEFAULT_MAX_PROGRAMS : nPrograms;
 
-      // try reading all of them
-      for(int i = 0; i < nPrograms; i++){
-        // program might be malformed in JSON for some reason - make sure it is not pointing anywhere
-        Programs[i] = nullptr;
-        if( JsonObject pobj = parr[i] ){
-          // try reading steps - create program only in case steps are defined
-          if(JsonArray sarr = pobj[FPSTR(JSCONF_PROGRAM_STEPS)]){
-            // steps are defined - create program and try populating it with steps
-            int nSteps = sarr.size();
-            // create new program
-            TProgram* p = new TProgram( nSteps, pobj[FPSTR(JSCONF_PROGRAM_NAME)] | String(F("InvalidName")) );
-            // read and add every step
-            for( int j = 0; j < nSteps; j++){
-              if( JsonObject sobj = sarr[j] ){
-                // add step in case it is represented as a valid JSON object
-                p->AddStep( sobj[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] | 0.0,
-                            sobj[FPSTR(JSCONF_PROGRAM_STEP_TEND)] | 0.0,
-                            sobj[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] | 0 );
-              }
+    // array contains elements - read up to a maximum of DEFAULT_MAX_PROGRAMS
+    for(int i = 0; i < nPrograms; i++){
+      // program might be malformed in JSON for some reason - make sure it is not pointing anywhere
+      if( JsonObject pobj = parr[i] ){
+        // try reading steps - create program only in case steps are defined
+        if(JsonArray sarr = pobj[FPSTR(JSCONF_PROGRAM_STEPS)]){
+          // steps are defined - create program and try populating it with steps
+          int nSteps = sarr.size();
+          // make sure to read to a maximum of TPGM_STEPS_MAX
+          nSteps = nSteps > TPGM_STEPS_MAX ? TPGM_STEPS_MAX : nSteps;
+          // set program name
+          Configuration.Programs[i].SetName(pobj[FPSTR(JSCONF_PROGRAM_NAME)] | "");
+
+          // read and add every step we can accomodate
+          for( int j = 0; j < nSteps; j++){
+            if( JsonObject sobj = sarr[j] ){
+              // add step in case it is represented as a valid JSON object
+              Configuration.Programs[i].AddStep(sobj[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] | 0.0,
+                                                sobj[FPSTR(JSCONF_PROGRAM_STEP_TEND)] | 0.0,
+                                                sobj[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] | 0 );
             }
-            p->Reset(); // reset program to ready state
-            Programs[i] = p; // add it to an array of programs
           }
-          // at this pont Programs[i] is either nullptr or a valid object
-          if(!startup) yield();
+          Configuration.Programs[i].Reset(); // reset program to ready state
         }
+        if(!startup) yield();
       }
 
-      // now replace programs in configuration object
-      // TODO: introduce sync lock in order to avoid problems when replacing programs
-      // while user might be selecting them on TFT screen
-      int old_nPrograms = Configuration.nPrograms;
-      TProgram** old_Programs = Configuration.Programs;
-
+      // adjust number of programs read from file into memory
       Configuration.nPrograms = nPrograms;
-      Configuration.Programs = Programs;
-
-      if(old_nPrograms > 0){
-        for(int i = 0; i < old_nPrograms; i++) delete old_Programs[i];
-        delete Configuration.Programs;
-      }
+      
     } // done reading programs
   }
 }
@@ -595,19 +581,18 @@ void BuildRunningConfig(JsonObject& joConfig){
     // crate object in array for each program
     for(int i = 0; i < Configuration.nPrograms; i++){
       JsonObject joProgram = jaPrograms.createNestedObject();
-      TProgram* currProgram = Configuration.Programs[i];
 
       // set current program name
-      joProgram[FPSTR(JSCONF_PROGRAM_NAME)] = currProgram->GetName().c_str(); // prevent copying string
+      joProgram[FPSTR(JSCONF_PROGRAM_NAME)] = Configuration.Programs[i].GetName(); // prevent copying string
 
       // add steps array
       JsonArray jaSteps = joProgram.createNestedArray(FPSTR(JSCONF_PROGRAM_STEPS));
 
       // for each step create nested object and set values
-      for(int j = 0; j < currProgram->GetStepsTotal(); j++){
+      for(int j = 0; j < Configuration.Programs[i].GetStepsTotal(); j++){
         // create step and set values
         JsonObject joStep = jaSteps.createNestedObject();
-        TProgramStep* currStep = currProgram->GetStep(j);
+        TProgramStep* currStep = Configuration.Programs[i].GetStep(j);
 
         joStep[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] = currStep->GetTStart();
         joStep[FPSTR(JSCONF_PROGRAM_STEP_TEND)] = currStep->GetTEnd();
@@ -924,10 +909,10 @@ void loop() {
     // start signalled ...
     if(!State.isPgmRunning){
       // ... but program is not running: check if we can start or reset flag otherwise
-      if(State.ActiveProgram != nullptr){
+      if(State.ActiveProgram.IsValid()){
         // active program exists - prepare and start it
         gp_PID.Reset( Configuration.PID.KP, Configuration.PID.KI, Configuration.PID.KD, Configuration.PID.poll);
-        State.tSP = State.ActiveProgram->Begin();
+        State.tSP = State.ActiveProgram.Begin();
         State.isPgmRunning = true;
 
         // update GUI
@@ -947,7 +932,7 @@ void loop() {
       State.isRelayOn = false;
 
       // reset active program but leave it selected - active program can't be nullptr - we should not have started
-      State.ActiveProgram->Reset();
+      State.ActiveProgram.Reset();
 
       State.U = 0.0; // reset controlling signal
       State.isPgmRunning = false;
@@ -1000,7 +985,7 @@ void loop() {
     if(State.isPgmRunning){
 
       // Begin() on program should have been called already but still recalculate the Set Point value
-      State.tSP = State.ActiveProgram->CalculateSetPoint();
+      State.tSP = State.ActiveProgram.CalculateSetPoint();
 
       // make a check for program termination
       if(isnan(State.tSP) || faultCode){
@@ -1025,15 +1010,15 @@ void loop() {
 
         // update labels' values
         (wnd.lblTemprTarget = String(State.tSP,2)) += FPSTR(LBL_DEGC);
-        wnd.lblStepNumber = String(State.ActiveProgram->GetStepsCurrent());
+        wnd.lblStepNumber = String(State.ActiveProgram.GetStepsCurrent());
 
         // update program remaining time
-        unsigned long t = State.ActiveProgram->GetDurationTotal() - State.ActiveProgram->GetDurationElapsed();
+        unsigned long t = State.ActiveProgram.GetDurationTotal() - State.ActiveProgram.GetDurationElapsed();
         snprintf(buff, BUFF_LEN, "%02lu:%02lu:%02lu", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
         wnd.lblProgramTimeValue = buff;
 
         // update step remaining time
-        t = State.ActiveProgram->GetDurationElapsedStep();
+        t = State.ActiveProgram.GetDurationElapsedStep();
         snprintf(buff, BUFF_LEN, "%02lu:%02lu:%02lu", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
         wnd.lblStepTimeValue = buff;
 
@@ -1072,21 +1057,21 @@ void loop() {
       joStatus["stsText"] = wnd.lblStatus.c_str(); // should be safe as serialize is called shortly
 
       // relevant information about active program
-      if(State.ActiveProgram != nullptr){
-        joStatus["actStep"] = State.ActiveProgram->GetStepsCurrent();
-        joStatus["tmElapsed"] = State.ActiveProgram->GetDurationElapsed();
+      if(State.ActiveProgram.IsValid()){
+        joStatus["actStep"] = State.ActiveProgram.GetStepsCurrent();
+        joStatus["tmElapsed"] = State.ActiveProgram.GetDurationElapsed();
 
         // add active program
         JsonObject joProgram = joStatus.createNestedObject("actPgm");
-        joProgram[FPSTR(JSCONF_PROGRAM_NAME)] = State.ActiveProgram->GetName();
+        joProgram[FPSTR(JSCONF_PROGRAM_NAME)] = State.ActiveProgram.GetName();
 
         // add steps array and loop through all steps adding their parameters
         JsonArray jaSteps = joProgram.createNestedArray(FPSTR(JSCONF_PROGRAM_STEPS));
-        for(int i = 0; i < State.ActiveProgram->GetStepsTotal(); i++){
+        for(int i = 0; i < State.ActiveProgram.GetStepsTotal(); i++){
           JsonObject joStep = jaSteps.createNestedObject();
-          joStep[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] = State.ActiveProgram->GetStep(i)->GetTStart(); // start temperature
-          joStep[FPSTR(JSCONF_PROGRAM_STEP_TEND)] = State.ActiveProgram->GetStep(i)->GetTEnd(); // end temperature
-          joStep[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] = State.ActiveProgram->GetStep(i)->GetDuration(); // duration in ms
+          joStep[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] = State.ActiveProgram.GetStep(i)->GetTStart(); // start temperature
+          joStep[FPSTR(JSCONF_PROGRAM_STEP_TEND)] = State.ActiveProgram.GetStep(i)->GetTEnd(); // end temperature
+          joStep[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] = State.ActiveProgram.GetStep(i)->GetDuration(); // duration in ms
         }
       }else{
         // there is no active program
@@ -1231,21 +1216,17 @@ void loop() {
               int i = 0;
               for(i = 0; i < Configuration.nPrograms; i++){
                 // compare program name to one supplied in message
-                if(!strcmp(pgmName, Configuration.Programs[i]->GetName().c_str())){
-                  // found a program
-                  // delete active program if it was set
-                  if(State.ActiveProgram != nullptr) delete State.ActiveProgram;
-
-                  // create a copy of selected program
-                  State.ActiveProgram = new TProgram(*Configuration.Programs[i]); // invoke copy constructor
+                if(!strcmp(pgmName, Configuration.Programs[i].GetName())){
+                  // found a program - create a copy of selected program
+                  State.ActiveProgram = Configuration.Programs[i]; // invoke copy constructor
 
                   // set selected program details
-                  wnd.lblProgramName = State.ActiveProgram->GetName();
-                  wnd.lblStepTotal = String(State.ActiveProgram->GetStepsTotal());
-                  wnd.lblStepNumber = String(State.ActiveProgram->GetStepsCurrent());
+                  wnd.lblProgramName = State.ActiveProgram.GetName();
+                  wnd.lblStepTotal = String(State.ActiveProgram.GetStepsTotal());
+                  wnd.lblStepNumber = String(State.ActiveProgram.GetStepsCurrent());
 
                   // show initial duration of selected program
-                  unsigned long t = State.ActiveProgram->GetDurationTotal();
+                  unsigned long t = State.ActiveProgram.GetDurationTotal();
                   snprintf(buff, BUFF_LEN, "%02lu:%02lu:%02lu", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
                   wnd.lblProgramTimeValue = buff;
                   // end of adjusting controls

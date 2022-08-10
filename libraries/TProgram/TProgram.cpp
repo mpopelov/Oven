@@ -61,11 +61,14 @@ double TProgramStep::CalculateSetPoint(unsigned long t)
  */
 bool TProgram::AddStep(double T_s, double T_e, unsigned long d)
 {
-    if(_idx >= _nSteps) return false;                   // can't accomodate more steps than defined in constructor
-    _totalDuration += d;                                // adjust total program duration by added step duration
-    _steps[_idx].Init(T_s, T_e, d, _totalDuration);     // init current step and set it's dueTime
-    _idx++;                                             // move over to next step
-    return true;
+    if(_nSteps < TPGM_STEPS_MAX){
+        // still have room for another step
+        _totalDuration += d;                                // adjust total program duration by added step duration
+        _steps[_nSteps].Init(T_s, T_e, d, _totalDuration);  // init current step and set it's dueTime
+        _nSteps++;                                          // move over to next step
+    }else{
+        return false;
+    }
 }
 
 /**
