@@ -78,19 +78,13 @@ class TProgram
      bool AddStep(double T_s, double T_e, unsigned long d);
 
      // runtime routines
-     void   Clear() {               // clear the program making it invalid;
-        _name[0] = 0;
-        _timeElapsed = 0;
-        _timeElapsedStep = 0;
-        _timeLast = 0;
-        _totalDuration = 0;
-        _idx = 0;
-        _nSteps = 0;
-     }
      bool   IsValid() { return _nSteps > 0; } // verify if the program is valid and can be run
+     void   StepForward();          // advance step index to start program from
+     void   StepBack();             // decrease step index to start program from
      double Begin();                // start executing the program
      double CalculateSetPoint();    // calculate current program SetPoint
      void   Reset();                // reset program
+     void   Clear();                // clear the program making it invalid;
 
      // property getters / setters
      const char*    SetName(const char* name) { strncpy(_name, name, TPGM_NAME_LEN-1); _name[TPGM_NAME_LEN] = 0; return _name; } // set program name

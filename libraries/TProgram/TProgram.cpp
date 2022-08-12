@@ -72,6 +72,26 @@ bool TProgram::AddStep(double T_s, double T_e, unsigned long d)
 }
 
 /**
+ * @brief Advance step index to start program from
+ * 
+ */
+void TProgram::StepForward(){
+    if(_idx >= _nSteps - 1) return; // prevent moving index beyond total steps
+    _idx++; // advance index
+    _timeElapsed = _steps[_idx].GetDueTime() - _steps[_idx].GetDuration(); // adjust program elapsed time to calculate setpoints correctly
+}
+
+/**
+ * @brief Decrease index of the step to start program from
+ * 
+ */
+void TProgram::StepBack(){
+    if(_idx == 0) return; // prevent moving step index below 0
+    _idx--; // reduce index
+    _timeElapsed = _steps[_idx].GetDueTime() - _steps[_idx].GetDuration(); // adjust program elapsed time to calculate setpoints correctly
+}
+
+/**
  * @brief Initializes program to start running and return the initial SetPoint value
  * 
  * @return initial SetPoint / NAN in case of error
@@ -81,11 +101,11 @@ double TProgram::Begin()
     // return NAN if there are no program steps defined
     if(_nSteps == 0) return NAN;
 
-    _idx = 0;                               // reset current step index
-    _timeElapsed = 0;                       // reset elapsed time program is running
-    _timeElapsedStep = 0;
-    _timeLast = millis();                   // save timer value at start of the program
-    return _steps[0].CalculateSetPoint(0);  // returns starting temperature of the very first step in the program
+    // do not touch _idx and _timeElapsed values as they might have been adjusted
+    // by user requesting different step to start program from
+    _timeLast = millis();   // save timer value at start of the program
+    _timeElapsedStep = 0;   // reset step elapsed time to the beginning of the step
+    return _steps[_idx].CalculateSetPoint( _timeElapsedStep );
 }
 
 /**
@@ -128,4 +148,18 @@ void TProgram::Reset()
     _timeElapsedStep = 0;
     _timeLast = 0;
     _idx = 0;
+}
+
+/**
+ * @brief Clear the program making it invalid
+ * 
+ */
+void TProgram::Clear(){
+    _name[0] = 0;
+    _timeElapsed = 0;
+    _timeElapsedStep = 0;
+    _timeLast = 0;
+    _totalDuration = 0;
+    _idx = 0;
+    _nSteps = 0;
 }
