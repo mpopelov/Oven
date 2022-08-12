@@ -251,7 +251,7 @@ class cPgmSelectWindow : public DTWindow {
     AddControl(&btnCancel);
     AddControl(&btnDown);
     AddControl(&selProgs);
-    if(Configuration.nPrograms > 0 && Configuration.Programs != nullptr)
+    if(Configuration.nPrograms > 0)
       for(int idx=0; idx < Configuration.nPrograms; idx++) selProgs.AddItem(idx, Configuration.Programs[idx].GetName());
   }
 
