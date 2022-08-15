@@ -77,8 +77,8 @@ static const char LBL_TIMEREMAINING[] PROGMEM = "Program remaining: ";
 static const char LBL_DEGC[] PROGMEM = " C";
 
 // JSON message / configuration elements and defines
-#define JSON_BUFFER_MAX_SIZE 8192   // maximum message/buffer size
-#define JSON_DOCUMENT_MAX_SIZE 8192 // maximum size of JSON document allowed
+#define JSON_BUFFER_MAX_SIZE 4096   // maximum message/buffer size
+#define JSON_DOCUMENT_MAX_SIZE 4096 // maximum size of JSON document allowed
 
 static const char JSCONF_POLL[] PROGMEM                   = "poll";
 
@@ -297,8 +297,8 @@ class cMainWindow : public DTWindow {
          lblStepTotal( gfx, 160,  25,  30,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_EMPTY)),
               btnSFwd( gfx, 190,  25,  50,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSN1, ">", DTDelegate::create<cMainWindow,&cMainWindow::OnButton_SFwd>(this)),
   // temperature main display - Y offset 50
-             lblTempr( gfx,   0,  50, 210,  85, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSB4, FPSTR(LBL_TEMPREMPTY)),
-       lblTemprTarget( gfx, 135, 135,  75,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_TEMPREMPTY)),
+             lblTempr( gfx,   0,  50, 240,  85, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSB4, FPSTR(LBL_TEMPREMPTY)),
+       lblTemprTarget( gfx, 130, 135,  90,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_TEMPREMPTY)),
   // step timing values - Y offset 160
           lblStepTime( gfx,   0, 160, 170,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_STEPTIME)),
      lblStepTimeValue( gfx, 170, 160,  75,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_TIMEREMPTY)),
@@ -449,7 +449,7 @@ class cMainWindow : public DTWindow {
       lblStepTotal = FPSTR(LBL_EMPTY);
       lblProgramTimeValue = FPSTR(LBL_TIMEREMPTY);
       lblStepTimeValue = FPSTR(LBL_TIMEREMPTY);
-      wnd.lblTemprTarget = FPSTR(LBL_TEMPREMPTY);
+      lblTemprTarget = FPSTR(LBL_TEMPREMPTY);
     }
   }
 
@@ -1129,7 +1129,7 @@ void loop() {
         JsonArray jaSteps = joProgram.createNestedArray(FPSTR(JSCONF_PROGRAM_STEPS));
         for(int i = 0; i < State.ActiveProgram.GetStepsTotal(); i++){
           JsonObject joStep = jaSteps.createNestedObject();
-          TProgramStep* currStep = Configuration.Programs[i].GetStep(i);
+          TProgramStep* currStep = State.ActiveProgram.GetStep(i);
           joStep[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] = currStep->GetTStart(); // start temperature
           joStep[FPSTR(JSCONF_PROGRAM_STEP_TEND)] = currStep->GetTEnd(); // end temperature
           joStep[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] = currStep->GetDuration(); // duration in ms

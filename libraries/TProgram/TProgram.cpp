@@ -66,6 +66,7 @@ bool TProgram::AddStep(double T_s, double T_e, unsigned long d)
         _totalDuration += d;                                // adjust total program duration by added step duration
         _steps[_nSteps].Init(T_s, T_e, d, _totalDuration);  // init current step and set it's dueTime
         _nSteps++;                                          // move over to next step
+        return true;
     }else{
         return false;
     }
