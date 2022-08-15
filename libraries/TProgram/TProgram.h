@@ -89,11 +89,18 @@ class TProgram
      // property getters / setters
      const char*    SetName(const char* name) { strncpy(_name, name, TPGM_NAME_LEN-1); _name[TPGM_NAME_LEN] = 0; return _name; } // set program name
      const char*    GetName() { return _name; } // return program name
+
      int            GetStepsTotal() { return _nSteps; }    // return total number of steps in control program
      int            GetStepsCurrent() { return _idx; } // return current step of the program
-     unsigned long  GetDurationTotal() { return _totalDuration; }  // return precalculated total duration of the program
-     unsigned long  GetDurationElapsed() { return _timeElapsed; }  // return time elapsed since program start
-     unsigned long  GetDurationElapsedStep() { return _timeElapsedStep; }  // return time elapsed within current step
+
+     unsigned long  GetDurationProgram() { return _totalDuration; }         // return precalculated total duration of the program
+     unsigned long  GetDurationProgramElapsed() { return _timeElapsed; }    // return time elapsed since program start
+     unsigned long  GetDurationStep() {return _steps[_idx].GetDuration(); } // return duration of current step
+     unsigned long  GetDurationStepElapsed() { return _timeElapsedStep; }   // return time elapsed within current step
+
+     double GetTemperatureStepStart() { return _steps[_idx].GetTStart(); }  // return starting temperature of current step
+     double GetTemperatureStepEnd() { return _steps[_idx].GetTEnd(); }      // return target end temperature of current step
+
      TProgramStep*  GetStep(int i) { if(i>=0 && i<_nSteps) return &(_steps[i]); else return nullptr; } //return step #i
 
     private:

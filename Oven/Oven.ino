@@ -289,14 +289,16 @@ class cMainWindow : public DTWindow {
   // program details - Y offset 0
            lblProgram( gfx,   0,   0,  80,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_PROG)),
        lblProgramName( gfx,  80,   0, 170,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_EMPTY)),
-  // step details - Y offset 25
-              lblStep( gfx,   0,  25,  50,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_STEP)),
-        lblStepNumber( gfx,  50,  25,  30,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_EMPTY)),
-            lblStepOf( gfx,  80,  25,  30,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_OF)),
-         lblStepTotal( gfx, 110,  25,  30,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_EMPTY)),
+  // step details + forward and backward butons - Y offset 25
+              btnSBck( gfx,   0,  25,  50,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSN1, "<", DTDelegate::create<cMainWindow,&cMainWindow::OnButton_SBck>(this)),
+              lblStep( gfx,  50,  25,  50,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_STEP)),
+        lblStepNumber( gfx, 100,  25,  30,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_EMPTY)),
+            lblStepOf( gfx, 130,  25,  30,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_OF)),
+         lblStepTotal( gfx, 160,  25,  30,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_EMPTY)),
+              btnSFwd( gfx, 190,  25,  50,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSN1, ">", DTDelegate::create<cMainWindow,&cMainWindow::OnButton_SFwd>(this)),
   // temperature main display - Y offset 50
-             lblTempr( gfx,   0,  50, 210, 110, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSB4, FPSTR(LBL_TEMPREMPTY)),
-       lblTemprTarget( gfx, 135, 135,  75,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_RED, &FSN1, FPSTR(LBL_TEMPREMPTY)),
+             lblTempr( gfx,   0,  50, 210,  85, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSB4, FPSTR(LBL_TEMPREMPTY)),
+       lblTemprTarget( gfx, 135, 135,  75,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_TEMPREMPTY)),
   // step timing values - Y offset 160
           lblStepTime( gfx,   0, 160, 170,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_STEPTIME)),
      lblStepTimeValue( gfx, 170, 160,  75,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_TIMEREMPTY)),
@@ -318,10 +320,12 @@ class cMainWindow : public DTWindow {
     // Add controls to handling stack
     AddControl(&lblProgram);
     AddControl(&lblProgramName);
+    AddControl(&btnSBck);
     AddControl(&lblStep);
     AddControl(&lblStepNumber);
     AddControl(&lblStepOf);
     AddControl(&lblStepTotal);
+    AddControl(&btnSFwd);
     AddControl(&lblTemprTarget);
     AddControl(&lblTempr);
     AddControl(&lblStepTime);
@@ -350,13 +354,8 @@ class cMainWindow : public DTWindow {
           // set selected program details
           lblProgramName = State.ActiveProgram.GetName();
           lblStepTotal = String(State.ActiveProgram.GetStepsTotal());
-          lblStepNumber = String(State.ActiveProgram.GetStepsCurrent());
 
-          // show initial duration of selected program
-          char buff[12];
-          unsigned long t = State.ActiveProgram.GetDurationTotal();
-          snprintf(buff, 12, "%02lu:%02lu:%02lu", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
-          lblProgramTimeValue = buff;
+          UpdateProgramDisplay();
           // end of adjusting controls
         }
       }
@@ -387,6 +386,70 @@ class cMainWindow : public DTWindow {
         // raise the flag and signal main loop to start executing
         State.StartStop = true;
       }
+    }
+  }
+
+  // callback for step forward button
+  void OnButton_SFwd()
+  {
+    // change step only in case there is active program and controller is not running
+    if(!State.isPgmRunning && State.ActiveProgram.IsValid()){
+      // change step
+      State.ActiveProgram.StepForward();
+      // update displayed values
+      UpdateProgramDisplay();
+    }
+  }
+
+  // callback for step backward button
+  void OnButton_SBck()
+  {
+    // change step only in case there is active program and controller is not running
+    if(!State.isPgmRunning && State.ActiveProgram.IsValid()){
+      // change step
+      State.ActiveProgram.StepBack();
+      // update displayed values
+      UpdateProgramDisplay();
+    }
+  }
+
+  // update display values for program/step reflecting remaining time before/during program execution
+  void UpdateProgramDisplay()
+  {
+    if(State.ActiveProgram.IsValid()){
+
+      // update current step - remember we get back 0-based index.
+      // for user we present adjusted value starting from 1 up to the maximum number of steps in the program
+      lblStepNumber = String(State.ActiveProgram.GetStepsCurrent() + 1);
+
+      // adjust remaining duration of selected program
+      char buff[12];
+      unsigned long t = State.ActiveProgram.GetDurationProgram() - State.ActiveProgram.GetDurationProgramElapsed();
+      snprintf(buff, 12, "%02lu:%02lu:%02lu", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
+      lblProgramTimeValue = buff;
+
+      // show remaining duration of current step
+      t = State.ActiveProgram.GetDurationStep() - State.ActiveProgram.GetDurationStepElapsed();
+      snprintf(buff, 12, "%02lu:%02lu:%02lu", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
+      lblStepTimeValue = buff;
+
+      // update target temperature label:
+      // if program is running - update with setpoint value
+      // if program is not running - update with target temperature of current step
+      if(State.isPgmRunning){
+        (lblTemprTarget = String(State.tSP,2)) += FPSTR(LBL_DEGC);
+      }else{
+        lblTemprTarget.SetTextColor(DT_C_LIGHTGREEN);
+        (lblTemprTarget = String(State.ActiveProgram.GetTemperatureStepEnd(),2)) += FPSTR(LBL_DEGC);
+      }
+
+    }else{
+      // no valid program selected - update with initial "empty" values
+      lblStepNumber = FPSTR(LBL_EMPTY);
+      lblStepTotal = FPSTR(LBL_EMPTY);
+      lblProgramTimeValue = FPSTR(LBL_TIMEREMPTY);
+      lblStepTimeValue = FPSTR(LBL_TIMEREMPTY);
+      wnd.lblTemprTarget = FPSTR(LBL_TEMPREMPTY);
     }
   }
 
@@ -426,8 +489,10 @@ class cMainWindow : public DTWindow {
   / Members holding all control elements
   */
   // buttons
-  DTButton btnProg;
-  DTButton btnStart;
+  DTButton btnProg;   // Program select button
+  DTButton btnStart;  // Start/Stop program button
+  DTButton btnSFwd;   // step forward button
+  DTButton btnSBck;   // step backward button
   
   // labels
   DTLabel lblTempr;             // current measured temperature
@@ -916,7 +981,6 @@ void loop() {
         State.isPgmRunning = true;
 
         // update GUI
-        wnd.lblTemprTarget.Visible(true);
         wnd.btnStart = FPSTR(BTN_STOP);
         wnd.btnStart.SetBtnColor(DT_C_RED);
       }else{
@@ -938,7 +1002,6 @@ void loop() {
       State.isPgmRunning = false;
 
       // update TFT screen
-      wnd.lblTemprTarget.Visible(false);
       wnd.lblStatus = F("Program has ended");
       wnd.btnStart = FPSTR(BTN_START);
       wnd.btnStart.SetBtnColor(DT_C_GREEN);
@@ -959,25 +1022,33 @@ void loop() {
   if ( ticks - State.ticks_TSENSOR >= _PIDPOLL )
   {
     // read temperature and update values on screen
-    uint8_t faultCode = gi_TS.readChip();           // read chip updated value and save error for easy access
+    //
+    // TEMP: there seem to be some errors generated by probe at higher temperatures
+    // for a reason unknown so far.
+    // To avoid breaking program upon random unsuccessful attempts to read temperature sensor the following
+    // patch is introduced:
+    // Make at most 3 attempts to read temperature values.
+    // If any attempt is successful - proceed normally and log the fact error occured.
+    // If all 3 readings result in an error - stop the program as intended initially.
+
+    uint8_t faultCode = 0;  // reset fault code to 0
+    for(int tAttempt = 0; tAttempt < 3; tAttempt++){
+      // try reading and updateing temperature values
+      faultCode = gi_TS.readChip();
+      if(faultCode == 0) break; // break the for loop in case of good reading
+    }
+
+    // update values
     State.tAmbient    = gi_TS.getAmbient();         // get updated value of chip ambient temperature
     State.tProbe      = gi_TS.getProbeLinearized(); // get probe temperature as read by chip
 
-    if (faultCode)                                  // Display error code if present
-    {
-      if (faultCode & 0b001) {
-        wnd.lblStatus = F("ERR: Sensor not connected");
-      }
-      if (faultCode & 0b010) {
-        wnd.lblStatus = F("ERR: Sensor s-c to GND(-)");
-      }
-      if (faultCode & 0b100) {
-        wnd.lblStatus = F("ERR: Sensor s-c to VCC(+)");
-      }
-      wnd.lblTempr = FPSTR(LBL_EMPTY);
-    }
-    else
-    {
+    if(faultCode){
+      // an error occured
+      if (faultCode & 0b001) { wnd.lblStatus = F("ERR: Sensor not connected"); }
+      if (faultCode & 0b010) { wnd.lblStatus = F("ERR: Sensor s-c to GND(-)"); }
+      if (faultCode & 0b100) { wnd.lblStatus = F("ERR: Sensor s-c to VCC(+)"); }
+      wnd.lblTempr = FPSTR(LBL_TEMPREMPTY);
+    }else{
       (wnd.lblTempr = String(State.tProbe, 1)) += FPSTR(LBL_DEGC);
     }
 
@@ -996,31 +1067,20 @@ void loop() {
         State.StartStop = false;
         wnd.lblStatus = F("Program terminating...");
       }else{
-        // do common staff - calculate controlling signal and turn relay on/off accordingly
+        // do common stuff - calculate controlling signal and turn relay on/off accordingly
         State.U = gp_PID.Evaluate(State.tSP, State.tProbe, State.U);
         
         // check whether relay needs to be turned on or off
         if( Configuration.PID.TOL - abs(State.U) < 0.0 ){
           State.isRelayOn = (State.U > 0.0); // beyond tolerance - adjust relay state
+          wnd.lblTemprTarget.SetTextColor(DT_C_RED);
         }else{
           State.isRelayOn = false; // within tolerance - turn off relay
+          wnd.lblTemprTarget.SetTextColor(DT_C_LIGHTGREEN);
         }
-        //State.isRelayOn = !State.isRelayOn;
         digitalWrite(D1, (State.isRelayOn ? HIGH : LOW));
 
-        // update labels' values
-        (wnd.lblTemprTarget = String(State.tSP,2)) += FPSTR(LBL_DEGC);
-        wnd.lblStepNumber = String(State.ActiveProgram.GetStepsCurrent());
-
-        // update program remaining time
-        unsigned long t = State.ActiveProgram.GetDurationTotal() - State.ActiveProgram.GetDurationElapsed();
-        snprintf(buff, BUFF_LEN, "%02lu:%02lu:%02lu", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
-        wnd.lblProgramTimeValue = buff;
-
-        // update step remaining time
-        t = State.ActiveProgram.GetDurationElapsedStep();
-        snprintf(buff, BUFF_LEN, "%02lu:%02lu:%02lu", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
-        wnd.lblStepTimeValue = buff;
+        wnd.UpdateProgramDisplay();
 
         (wnd.lblStatus = F("Control U = ")) += String(State.U,6);
       }
@@ -1058,8 +1118,8 @@ void loop() {
 
       // relevant information about active program
       if(State.ActiveProgram.IsValid()){
-        joStatus["actStep"] = State.ActiveProgram.GetStepsCurrent();
-        joStatus["tmElapsed"] = State.ActiveProgram.GetDurationElapsed();
+        joStatus["actStep"] = (State.ActiveProgram.GetStepsCurrent() + 1);
+        joStatus["tmElapsed"] = State.ActiveProgram.GetDurationProgramElapsed();
 
         // add active program
         JsonObject joProgram = joStatus.createNestedObject("actPgm");
@@ -1069,9 +1129,10 @@ void loop() {
         JsonArray jaSteps = joProgram.createNestedArray(FPSTR(JSCONF_PROGRAM_STEPS));
         for(int i = 0; i < State.ActiveProgram.GetStepsTotal(); i++){
           JsonObject joStep = jaSteps.createNestedObject();
-          joStep[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] = State.ActiveProgram.GetStep(i)->GetTStart(); // start temperature
-          joStep[FPSTR(JSCONF_PROGRAM_STEP_TEND)] = State.ActiveProgram.GetStep(i)->GetTEnd(); // end temperature
-          joStep[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] = State.ActiveProgram.GetStep(i)->GetDuration(); // duration in ms
+          TProgramStep* currStep = Configuration.Programs[i].GetStep(i);
+          joStep[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] = currStep->GetTStart(); // start temperature
+          joStep[FPSTR(JSCONF_PROGRAM_STEP_TEND)] = currStep->GetTEnd(); // end temperature
+          joStep[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] = currStep->GetDuration(); // duration in ms
         }
       }else{
         // there is no active program
@@ -1223,12 +1284,8 @@ void loop() {
                   // set selected program details
                   wnd.lblProgramName = State.ActiveProgram.GetName();
                   wnd.lblStepTotal = String(State.ActiveProgram.GetStepsTotal());
-                  wnd.lblStepNumber = String(State.ActiveProgram.GetStepsCurrent());
+                  wnd.UpdateProgramDisplay();
 
-                  // show initial duration of selected program
-                  unsigned long t = State.ActiveProgram.GetDurationTotal();
-                  snprintf(buff, BUFF_LEN, "%02lu:%02lu:%02lu", TPGM_MS_HOURS(t), TPGM_MS_MINUTES(t), TPGM_MS_SECONDS(t));
-                  wnd.lblProgramTimeValue = buff;
                   // end of adjusting controls
                   AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
                   if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_OK, "Program selected");
