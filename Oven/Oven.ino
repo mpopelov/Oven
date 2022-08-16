@@ -1036,6 +1036,7 @@ void loop() {
       // try reading and updateing temperature values
       faultCode = gi_TS.readChip();
       if(faultCode == 0) break; // break the for loop in case of good reading
+      delay(5); // TEMP!!!! add a delay between readings assuming error conditions can change and a good reading will follow
     }
 
     // update values
