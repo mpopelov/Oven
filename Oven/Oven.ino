@@ -54,6 +54,7 @@
  */
 // file names and paths (also for web server)
 static const char FILE_CONFIGURATION[] PROGMEM = "oven.json";
+static const char FILE_PROGRAMS[] PROGMEM      = "programs.json";
 static const char FILE_WEB_INDEX[]             = "index.html";
 static const char PATH_WEB_ROOT[]              = "/";
 static const char PATH_WEB_HEAP[]              = "/heap";
@@ -562,47 +563,51 @@ void UpdateRunningConfig(JsonObject& joConfig, bool startup){
     Configuration.PID.KD = obj[FPSTR(JSCONF_PID_KD)] | DEFAULT_PID_PRM;
     Configuration.PID.TOL = obj[FPSTR(JSCONF_PID_TOLERANCE)] | DEFAULT_PID_PRM;
   }
-  if(!startup) yield();
+}
 
-  // d. read programs
-  if( JsonArray parr = joConfig[FPSTR(JSCONF_PROGRAMS)] ){
-    // Programs section is present in the document
-    int nPrograms = parr.size();
-    // limit the number of pregrams that might be in the configuration file to built-in max number of programs
-    nPrograms = nPrograms > DEFAULT_MAX_PROGRAMS ? DEFAULT_MAX_PROGRAMS : nPrograms;
+/**
+ * @brief Updates running controller programs from a given JsonArray
+ * 
+ * @param jaPrograms JSON array containing programs
+ * @param startup indicates whether configuration is initialized at startup or to be updated while controller is running
+ */
+void UpdateRunningPrograms(JsonArray& jaPrograms, bool startup){
+  int nPrograms = jaPrograms.size();
+  // limit the number of pregrams that might be in the configuration file to built-in max number of programs
+  nPrograms = nPrograms > DEFAULT_MAX_PROGRAMS ? DEFAULT_MAX_PROGRAMS : nPrograms;
 
-    // array contains elements - read up to a maximum of DEFAULT_MAX_PROGRAMS
-    for(int i = 0; i < nPrograms; i++){
-      // program might be malformed in JSON for some reason - make sure it is not pointing anywhere
-      if( JsonObject pobj = parr[i] ){
-        // try reading steps - create program only in case steps are defined
-        if(JsonArray sarr = pobj[FPSTR(JSCONF_PROGRAM_STEPS)]){
-          // steps are defined - create program and try populating it with steps
-          int nSteps = sarr.size();
-          // make sure to read to a maximum of TPGM_STEPS_MAX
-          nSteps = nSteps > TPGM_STEPS_MAX ? TPGM_STEPS_MAX : nSteps;
-          // set program name
-          Configuration.Programs[i].SetName(pobj[FPSTR(JSCONF_PROGRAM_NAME)] | "");
+  // array contains elements - read up to a maximum of DEFAULT_MAX_PROGRAMS
+  for(int i = 0; i < nPrograms; i++){
+    // program might be malformed in JSON for some reason - make sure it is not pointing anywhere
+    if( JsonObject pobj = jaPrograms[i] ){
+      // try reading steps - create program only in case steps are defined
+      if(JsonArray sarr = pobj[FPSTR(JSCONF_PROGRAM_STEPS)]){
+        // steps are defined - create program and try populating it with steps
+        int nSteps = sarr.size();
+        // make sure to read to a maximum of TPGM_STEPS_MAX
+        nSteps = nSteps > TPGM_STEPS_MAX ? TPGM_STEPS_MAX : nSteps;
+        // set program name
+        Configuration.Programs[i].SetName(pobj[FPSTR(JSCONF_PROGRAM_NAME)] | "");
 
-          // read and add every step we can accomodate
-          for( int j = 0; j < nSteps; j++){
-            if( JsonObject sobj = sarr[j] ){
-              // add step in case it is represented as a valid JSON object
-              Configuration.Programs[i].AddStep(sobj[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] | 0.0,
-                                                sobj[FPSTR(JSCONF_PROGRAM_STEP_TEND)] | 0.0,
-                                                sobj[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] | 0 );
-            }
+        // read and add every step we can accomodate
+        for( int j = 0; j < nSteps; j++){
+          if( JsonObject sobj = sarr[j] ){
+            // add step in case it is represented as a valid JSON object
+            Configuration.Programs[i].AddStep(sobj[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] | 0.0,
+                                              sobj[FPSTR(JSCONF_PROGRAM_STEP_TEND)] | 0.0,
+                                              sobj[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] | 0 );
           }
-          Configuration.Programs[i].Reset(); // reset program to ready state
         }
-        if(!startup) yield();
+        Configuration.Programs[i].Reset(); // reset program to ready state
       }
+    }
 
-      // adjust number of programs read from file into memory
-      Configuration.nPrograms = nPrograms;
-      
-    } // done reading programs
-  }
+    // let controller do some stuff while reading programs might take a while
+    if(!startup) yield();
+  } // done reading programs
+
+  // adjust number of programs read
+  Configuration.nPrograms = nPrograms;
 }
 
 /**
@@ -639,10 +644,17 @@ void BuildRunningConfig(JsonObject& joConfig){
   joPID[FPSTR(JSCONF_PID_KD)] = Configuration.PID.KD;
   joPID[FPSTR(JSCONF_PID_TOLERANCE)] = Configuration.PID.TOL;
 
+  // end building up configuration
+}
+
+/**
+ * @brief Given a reference to valid JsonArray populates it with currently loaded oven programs
+ * 
+ * @param jaPrograms a valid JsonArray that will be modified and filled with information about programs
+ */
+void BuildRunningPrograms(JsonArray& jaPrograms){
   // add programs array if there are any programs in currently loaded configuration
   if(Configuration.nPrograms > 0){
-    JsonArray jaPrograms = joConfig.createNestedArray(FPSTR(JSCONF_PROGRAMS));
-
     // crate object in array for each program
     for(int i = 0; i < Configuration.nPrograms; i++){
       JsonObject joProgram = jaPrograms.createNestedObject();
@@ -665,9 +677,6 @@ void BuildRunningConfig(JsonObject& joConfig){
       }
     }
   }
-
-  // end building up configuration
-  // it's up to a caller to decide what to do with it
 }
 
 /**
@@ -823,16 +832,10 @@ void setup() {
 
     if (f) {
       // try deserializing from JSON config file
-      
-      // try parsing JSON
-      //DynamicJsonDocument JDoc{JSON_DOCUMENT_MAX_SIZE};
-      //DeserializationError err = deserializeJson(JDoc, f);
-
       DeserializationError err = deserializeJson(gi_JDoc, f);
 
       // parese JSON if it was deserialized successfully
       if(!err){
-        //JsonObject joConfig = JDoc.as<JsonObject>();
         JsonObject joConfig = gi_JDoc.as<JsonObject>();
         UpdateRunningConfig(joConfig, true);
       }else{
@@ -844,9 +847,38 @@ void setup() {
     }
   }
 
+  wSS.pbrProgress.SetProgress(30);
+
+  // 03. Try to read and parse preograms
+  wSS.lblStatus = F("Reading programs...");
+  wSS.Render(false);
+
+  // check if programs file exists
+  // if it does - read JSON and fill in programs array
+  if (LittleFS.exists(FPSTR(FILE_PROGRAMS))) {
+
+    File f = LittleFS.open(FPSTR(FILE_PROGRAMS), "r");
+
+    if (f) {
+      // try deserializing from JSON programs file
+      DeserializationError err = deserializeJson(gi_JDoc, f);
+
+      // parese JSON if it was deserialized successfully
+      if(!err){
+        JsonArray jaPrograms = gi_JDoc.as<JsonArray>();
+        UpdateRunningPrograms(jaPrograms, true);
+      }else{
+        // an error occured parsing JSON
+      }
+
+      // close the file
+      f.close();
+    }
+  }
+
   wSS.pbrProgress.SetProgress(50);
 
-  // 03. Calibrate touch screen if necessary
+  // 04. Calibrate touch screen if necessary
   wSS.lblStatus = F("Setting up touchscreen...");
   wSS.Render(false);
 
@@ -875,13 +907,10 @@ void setup() {
     File f = LittleFS.open(FPSTR(FILE_CONFIGURATION), "w");
 
     if (f) {
-      //DynamicJsonDocument JDoc{JSON_DOCUMENT_MAX_SIZE};
-      //JsonObject joConfig = JDoc.to<JsonObject>();
       JsonObject joConfig = gi_JDoc.to<JsonObject>();
       BuildRunningConfig(joConfig);
 
       // save config to file
-      //serializeJson(JDoc, f);
       serializeJson(gi_JDoc, f);
 
       // close the file
@@ -889,6 +918,7 @@ void setup() {
     }
   }
 
+  wSS.Invalidate(); // invalidate entire window to get rid of calibrating artifacts
   wSS.pbrProgress.SetProgress(70);
 
   // 0.4 Attempt to connect to WiFi (if can not - try to launch self in AP mode ?)
@@ -1099,15 +1129,12 @@ void loop() {
     
     // Send update to all possible connected clients sending them the state
     if(gi_WebSocket.count()) {
-      //DynamicJsonDocument jDoc(1024); // adjust capacity to something more appropriate for status JSON document
       gi_JDoc.clear();
       
       // add message id
-      //jDoc["id"] = "STS";
       gi_JDoc["id"] = "STS";
       
       // add status and populate fields
-      //JsonObject joStatus = jDoc.createNestedObject("status");
       JsonObject joStatus = gi_JDoc.createNestedObject("status");
       joStatus["tPB"] = State.tProbe;
       joStatus["tAM"] = State.tAmbient;
@@ -1143,11 +1170,9 @@ void loop() {
       }
 
       // send resulting JSON to clients
-      //size_t jdLen = measureJson(jDoc); // length of the resulting condenced JSON excluding 0-terminator
       size_t jdLen = measureJson(gi_JDoc);
       AsyncWebSocketMessageBuffer * buffer = gi_WebSocket.makeBuffer(jdLen); // allocates buffer that includes 0-terminator
       if(buffer){
-        //serializeJson(jDoc, buffer->get(), jdLen + 1); // note accounting for 0-terminator in the length of the buffer provided to function
         serializeJson(gi_JDoc, buffer->get(), jdLen + 1);
         gi_WebSocket.textAll(buffer);
       }
@@ -1164,13 +1189,9 @@ void loop() {
     // read message in case data available is > 0
     if( gi_WsJSONMsg.datalen > 0 ){
       // create an object - same as data length
-      //DynamicJsonDocument jDocInc{JSON_DOCUMENT_MAX_SIZE};
-      //DeserializationError err = deserializeJson(jDocInc,gi_WsJSONMsg.buffer);
       DeserializationError err = deserializeJson(gi_JDoc,gi_WsJSONMsg.buffer);
 
       if(!err){
-
-        //const char* cmd = jDocInc["id"];
         const char* cmd = gi_JDoc["id"];
 
         // parse JSON command and prepare reply
@@ -1186,87 +1207,6 @@ void loop() {
           AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
           if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_OK, "Stop signal sent");
 
-        }else if(!strcmp("cfgWR",cmd)){
-          // configuration submitted from web interface - try building and saving configuration
-
-          // jDocInc should contain msg object with configuration set
-          //JsonObject joConfig = jDocInc["msg"];
-          JsonObject joConfig = gi_JDoc["msg"];
-          if(joConfig){
-            // msg object present
-            UpdateRunningConfig(joConfig, false);
-
-            // notify client that configuration was modified
-            AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
-            if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_OK, "Configuration modified");
-
-          }else{
-            // malformed request
-            AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
-            if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_ERR, "Malformed JSON");
-          }
-
-          // done parsing incoming configuration
-
-        }else if(!strcmp("cfgRD",cmd)){
-          // configuration requested - build JSON and send back to client
-
-          // create outgoing JSON object
-          //DynamicJsonDocument jDocOut{8192}; // ??? appropriate size - especially for configuration file
-          gi_JDoc.clear();
-
-          //jDocOut["id"] = "OK";
-          gi_JDoc["id"] = "OK";
-
-          // add nested configuration object
-          //JsonObject joConfig = jDocOut.createNestedObject("config");
-          JsonObject joConfig = gi_JDoc.createNestedObject("config");
-
-          // build running configuration
-          BuildRunningConfig(joConfig);
-
-          // send out reply
-          AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
-          // make sure client is still valid and can be communicated to
-          if( wsc != nullptr ){
-            //size_t jdLenOut = measureJson(jDocOut);
-            size_t jdLenOut = measureJson(gi_JDoc);
-            AsyncWebSocketMessageBuffer * buffer = gi_WebSocket.makeBuffer(jdLenOut);
-            if(buffer){
-              //serializeJson(jDocOut, buffer->get(), jdLenOut + 1);
-              serializeJson(gi_JDoc, buffer->get(), jdLenOut + 1);
-              wsc->text(buffer);
-            }
-          }
-
-          // done sending active configuration. jDocOut should be destructed here
-
-        }else if(!strcmp("cfgSV",cmd)){
-          // write configuration to flash memory
-          // Save configuration to avoid re-calibration on restarts
-          File f = LittleFS.open(FPSTR(FILE_CONFIGURATION), "w");
-
-          if (f) {
-            //DynamicJsonDocument JDoc{JSON_DOCUMENT_MAX_SIZE};
-            //JsonObject joConfig = JDoc.to<JsonObject>();
-            JsonObject joConfig = gi_JDoc.to<JsonObject>();
-            BuildRunningConfig(joConfig);
-
-            // save config to file
-            //serializeJson(JDoc, f);
-            serializeJson(gi_JDoc, f);
-
-            // close the file
-            f.close();
-
-            // notify client that configuration was saved to flash
-            AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
-            if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_OK, "Configuration saved to flash");
-          }else{
-            // notify client that configuration was modified
-            AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
-            if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_ERR, "Flash write failed");
-          }
         }else if(!strcmp("setPG",cmd)){
           // set program to be run
           // make sure controller is not running program and no attempt to start program was made
@@ -1293,10 +1233,10 @@ void loop() {
 
                   break; // break for() loop
                 }
-                if(i == Configuration.nPrograms){
-                  AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
-                  if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_ERR, "Program not found");
-                }
+              }
+              if(i == Configuration.nPrograms){
+                AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+                if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_ERR, "Program not found");
               }
             }else{
               AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
@@ -1304,6 +1244,119 @@ void loop() {
             }
             // -----------------
           }
+
+        }else if(!strcmp("cfgRD",cmd)){
+          // configuration requested - build JSON and send back to client
+          gi_JDoc.clear();
+          gi_JDoc["id"] = "OK";
+          // add nested configuration object
+          JsonObject joConfig = gi_JDoc.createNestedObject("config");
+          // build running configuration
+          BuildRunningConfig(joConfig);
+
+          // send out reply
+          AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+          // make sure client is still valid and can be communicated to
+          if( wsc != nullptr ){
+            size_t jdLenOut = measureJson(gi_JDoc);
+            AsyncWebSocketMessageBuffer * buffer = gi_WebSocket.makeBuffer(jdLenOut);
+            if(buffer){
+              serializeJson(gi_JDoc, buffer->get(), jdLenOut + 1);
+              wsc->text(buffer);
+            }
+          }
+
+        }else if(!strcmp("cfgWR",cmd)){
+          // configuration submitted from web interface - try building and saving configuration
+          JsonObject joConfig = gi_JDoc["msg"];
+          if(joConfig){
+            // msg object present
+            UpdateRunningConfig(joConfig, false);
+            // notify client that configuration was modified
+            AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+            if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_OK, "Configuration modified");
+          }else{
+            // malformed request
+            AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+            if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_ERR, "Malformed JSON");
+          }
+
+        }else if(!strcmp("cfgSV",cmd)){
+          // write configuration to flash memory
+          File f = LittleFS.open(FPSTR(FILE_CONFIGURATION), "w");
+
+          if (f) {
+            JsonObject joConfig = gi_JDoc.to<JsonObject>();
+            BuildRunningConfig(joConfig);
+            // save config to file
+            serializeJson(gi_JDoc, f);
+            // close the file
+            f.close();
+            // notify client that configuration was saved to flash
+            AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+            if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_OK, "Configuration saved to flash");
+          }else{
+            // notify client that configuration was modified
+            AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+            if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_ERR, "Flash write failed");
+          }
+
+        }else if(!strcmp("pgmRD",cmd)){
+          // programs requested - build JSON and send back to client
+          gi_JDoc.clear();
+          gi_JDoc["id"] = "OK";
+          // add nested configuration object
+          JsonArray jaPrograms = gi_JDoc.createNestedArray("programs");
+          // build running programs
+          BuildRunningPrograms(jaPrograms);
+
+          // send out reply
+          AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+          // make sure client is still valid and can be communicated to
+          if( wsc != nullptr ){
+            size_t jdLenOut = measureJson(gi_JDoc);
+            AsyncWebSocketMessageBuffer * buffer = gi_WebSocket.makeBuffer(jdLenOut);
+            if(buffer){
+              serializeJson(gi_JDoc, buffer->get(), jdLenOut + 1);
+              wsc->text(buffer);
+            }
+          }
+
+        }else if(!strcmp("pgmWR",cmd)){
+          // programs submitted from web interface - try building and saving them to file
+          JsonArray jaPrograms = gi_JDoc["msg"];
+          if(jaPrograms){
+            // msg object present
+            UpdateRunningPrograms(jaPrograms, false);
+            // notify client that configuration was modified
+            AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+            if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_OK, "Programs modified");
+          }else{
+            // malformed request
+            AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+            if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_ERR, "Malformed JSON");
+          }
+
+        }else if(!strcmp("pgmSV",cmd)){
+          // write programs to flash memory
+          File f = LittleFS.open(FPSTR(FILE_PROGRAMS), "w");
+
+          if (f) {
+            JsonArray jaPrograms = gi_JDoc.to<JsonArray>();
+            BuildRunningPrograms(jaPrograms);
+            // save config to file
+            serializeJson(gi_JDoc, f);
+            // close the file
+            f.close();
+            // notify client that configuration was saved to flash
+            AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+            if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_OK, "Programs saved to flash");
+          }else{
+            // notify client that configuration was modified
+            AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
+            if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_ERR, "Flash write failed");
+          }
+
         }else{
           // unknown command
           AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
@@ -1316,7 +1369,6 @@ void loop() {
         if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_ERR, "Malformed JSON");
       } // end if(!err)
 
-      // jDocInc goes out of scope - should be destructed here
       // end processing incoming message
 
     } // end if(datalen > 0)
