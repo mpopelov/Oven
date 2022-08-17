@@ -33,11 +33,26 @@ void DTLabel::Render(bool parentCleared)
         _gfx.setFreeFont(_font);
         _gfx.setTextSize(1);
         _gfx.setTextColor(_lbl_color, _bkg_color);
-        _gfx.setTextDatum(ML_DATUM);
         _gfx.setTextPadding(0);
 
-        // draw string - note _x padding with 2 pixels to compensate for borders
-        _gfx.drawString(c_str(), _x+2, _y+(_h/2)-1);
+        // respect alignment settings
+        int32_t tx = 0;
+        int32_t ty = _y + (_h/2) -1;
+        switch(_alignment){
+            case LEFT:
+                _gfx.setTextDatum(ML_DATUM);
+                tx = _x + 2; // note _x padding with 2 pixels to compensate for borders
+                break;
+            case CENTER:
+                _gfx.setTextDatum(MC_DATUM);
+                tx = _x + (_w/2) -1;
+                break;
+            case RIGHT:
+                _gfx.setTextDatum(MR_DATUM);
+                tx = _x + _w -2; // note _x padding with 2 pixels to compensate for borders
+                break;
+        }
+        _gfx.drawString(c_str(), tx, ty);
         
         // remember to reset invalidation flags
         _flags &= ~DTCONTROL_FLAGS_INVALIDATED;

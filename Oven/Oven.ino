@@ -318,6 +318,10 @@ class cMainWindow : public DTWindow {
     lblStepNumber.reserve(12);
     lblStatus.reserve(64);
 
+    // set alignment on lebels as necessary
+    lblTempr.SetTextAlignment(CENTER);
+    lblTemprTarget.SetTextAlignment(RIGHT);
+
     // Add controls to handling stack
     AddControl(&lblProgram);
     AddControl(&lblProgramName);
@@ -799,6 +803,7 @@ void setup() {
 
   // prepare and show splash screen
   wSS.pbrProgress.SetProgress(1);
+  wSS.lblStatus.SetTextAlignment(CENTER);
   wSS.lblStatus = F("Starting controller...");
   wSS.Render(false);
   
