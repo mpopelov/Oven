@@ -1,43 +1,65 @@
 [
-    { "Name" : "Testing PID",
-      "steps": [
-          { "tStart" : 28, "tEnd" : 100, "duration" : 60000 },
-          { "tStart" : 100, "tEnd" : 100, "duration" : 60000 },
-          { "tStart" : 100, "tEnd" : 40, "duration" : 60000 }
-      ]
-    },
-    { "Name" : "Utility Red",
-      "steps": [
-          { "tStart" : 28, "tEnd" : 100, "duration" : 2100000 },
-          { "tStart" : 100, "tEnd" : 100, "duration" : 2100000 },
-          { "tStart" : 100, "tEnd" : 200, "duration" : 2100000 },
-          { "tStart" : 200, "tEnd" : 200, "duration" : 2100000 },
-          { "tStart" : 200, "tEnd" : 595, "duration" : 9000000 },
-          { "tStart" : 595, "tEnd" : 595, "duration" : 2700000 },
-          { "tStart" : 595, "tEnd" : 950, "duration" : 9000000 },
-          { "tStart" : 950, "tEnd" : 950, "duration" : 900000 }
-      ]
-    },
-    { "Name" : "Utility White",
-      "steps": [
-          { "tStart" : 28, "tEnd" : 100, "duration" : 2100000 },
-          { "tStart" : 100, "tEnd" : 100, "duration" : 2100000 },
-          { "tStart" : 100, "tEnd" : 200, "duration" : 2100000 },
-          { "tStart" : 200, "tEnd" : 200, "duration" : 2100000 },
-          { "tStart" : 200, "tEnd" : 595, "duration" : 9000000 },
-          { "tStart" : 595, "tEnd" : 595, "duration" : 2700000 },
-          { "tStart" : 595, "tEnd" : 1000, "duration" : 9000000 },
-          { "tStart" : 1000, "tEnd" : 1000, "duration" : 900000 }
-      ]
-    },
-    { "Name" : "Glazing",
-      "steps": [
-          { "tStart" : 28, "tEnd" : 100, "duration" : 2100000 },
-          { "tStart" : 100, "tEnd" : 100, "duration" : 2100000 },
-          { "tStart" : 100, "tEnd" : 200, "duration" : 2100000 },
-          { "tStart" : 200, "tEnd" : 200, "duration" : 2100000 },
-          { "tStart" : 200, "tEnd" : 1250, "duration" : 10800000 },
-          { "tStart" : 1250, "tEnd" : 1250, "duration" : 2400000 }
-      ]
-    }
+  { "Name" : "Utility Red 950",
+    "steps": [
+        { "tStart" : 28, "tEnd" : 100, "duration" : 2100000 },
+        { "tStart" : 100, "tEnd" : 100, "duration" : 2100000 },
+        { "tStart" : 100, "tEnd" : 200, "duration" : 2100000 },
+        { "tStart" : 200, "tEnd" : 200, "duration" : 2100000 },
+        { "tStart" : 200, "tEnd" : 595, "duration" : 9000000 },
+        { "tStart" : 595, "tEnd" : 595, "duration" : 2700000 },
+        { "tStart" : 595, "tEnd" : 950, "duration" : 9000000 },
+        { "tStart" : 950, "tEnd" : 950, "duration" : 900000 }
+    ]
+  },
+  { "Name" : "Utility White 1000",
+    "steps": [
+        { "tStart" : 28, "tEnd" : 100, "duration" : 2100000 },
+        { "tStart" : 100, "tEnd" : 100, "duration" : 2100000 },
+        { "tStart" : 100, "tEnd" : 200, "duration" : 2100000 },
+        { "tStart" : 200, "tEnd" : 200, "duration" : 2100000 },
+        { "tStart" : 200, "tEnd" : 595, "duration" : 9000000 },
+        { "tStart" : 595, "tEnd" : 595, "duration" : 2700000 },
+        { "tStart" : 595, "tEnd" : 1000, "duration" : 9000000 },
+        { "tStart" : 1000, "tEnd" : 1000, "duration" : 900000 }
+    ]
+  },
+  { "Name" : "Glazing 1040",
+    "steps": [
+        { "tStart" : 28, "tEnd" : 100, "duration" : 2100000 },
+        { "tStart" : 100, "tEnd" : 100, "duration" : 2100000 },
+        { "tStart" : 100, "tEnd" : 200, "duration" : 2100000 },
+        { "tStart" : 200, "tEnd" : 200, "duration" : 2100000 },
+        { "tStart" : 200, "tEnd" : 1040, "duration" : 10800000 },
+        { "tStart" : 1040, "tEnd" : 1040, "duration" : 2400000 }
+    ]
+  },
+  { "Name" : "Glazing 1050",
+    "steps": [
+        { "tStart" : 28, "tEnd" : 100, "duration" : 2100000 },
+        { "tStart" : 100, "tEnd" : 100, "duration" : 2100000 },
+        { "tStart" : 100, "tEnd" : 200, "duration" : 2100000 },
+        { "tStart" : 200, "tEnd" : 200, "duration" : 2100000 },
+        { "tStart" : 200, "tEnd" : 1050, "duration" : 12600000 },
+        { "tStart" : 1050, "tEnd" : 1050, "duration" : 2400000 }
+    ]
+  },
+  { "Name" : "Glazing 1180",
+    "steps": [
+        { "tStart" : 28, "tEnd" : 100, "duration" : 2100000 },
+        { "tStart" : 100, "tEnd" : 100, "duration" : 2100000 },
+        { "tStart" : 100, "tEnd" : 200, "duration" : 2100000 },
+        { "tStart" : 200, "tEnd" : 200, "duration" : 2100000 },
+        { "tStart" : 200, "tEnd" : 1180, "duration" : 10800000 },
+        { "tStart" : 1180, "tEnd" : 1180, "duration" : 2400000 }
+    ]
+  },
+  { "Name" : "Smoking 600",
+    "steps": [
+        { "tStart" : 28, "tEnd" : 100, "duration" : 2100000 },
+        { "tStart" : 100, "tEnd" : 100, "duration" : 2100000 },
+        { "tStart" : 100, "tEnd" : 200, "duration" : 2100000 },
+        { "tStart" : 200, "tEnd" : 200, "duration" : 2100000 },
+        { "tStart" : 200, "tEnd" : 600, "duration" : 9000000 }
+    ]
+  }
 ]
