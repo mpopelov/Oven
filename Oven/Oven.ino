@@ -78,8 +78,8 @@ static const char LBL_TIMEREMAINING[] PROGMEM = "Program remaining: ";
 static const char LBL_DEGC[] PROGMEM = " C";
 
 // JSON message / configuration elements and defines
-#define JSON_BUFFER_MAX_SIZE 4096   // maximum message/buffer size
-#define JSON_DOCUMENT_MAX_SIZE 4096 // maximum size of JSON document allowed
+#define JSON_BUFFER_MAX_SIZE 8192   // maximum message/buffer size
+#define JSON_DOCUMENT_MAX_SIZE 8192 // maximum size of JSON document allowed
 
 static const char JSCONF_POLL[] PROGMEM                   = "poll";
 
