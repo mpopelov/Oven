@@ -17,13 +17,24 @@
  * 
  */
 
+#define D1 36 // D1 pin used for relay control
+#define D2 35
+#define D3 18
+#define D4 16
+#define D0 4
+#define D5 12
+#define D6 13
+#define D7 11
+#define D8 10
+
 #include <Arduino.h>
+#include <math.h>
 #include <SPI.h>                  // SPI for accessing devices on SPI bus
 #include <TFT_eSPI.h>             // included for TFT support
 #include <LittleFS.h>             // included for file system support
 
-#include <ESP8266WiFi.h>          // included for WiFi support
-#include <ESPAsyncTCP.h>          // included for async TCP communication
+#include <WiFi.h>                 // included for WiFi support
+#include <AsyncTCP.h>             // included for async TCP communication
 #include <ESPAsyncWebServer.h>    // included for HTTP and WebSocket support
 
 #include <ArduinoJson.h>          // included for JSON support
@@ -49,12 +60,14 @@
 
 #define DEFAULT_MAX_PROGRAMS 10 // maximum number of different programs a controller can save im memory
 
+
+
 /**
  * Global string constants
  */
 // file names and paths (also for web server)
-static const char FILE_CONFIGURATION[] PROGMEM = "oven.json";
-static const char FILE_PROGRAMS[] PROGMEM      = "programs.json";
+static const char FILE_CONFIGURATION[] PROGMEM = "/oven.json";
+static const char FILE_PROGRAMS[] PROGMEM      = "/programs.json";
 static const char FILE_WEB_INDEX[]             = "index.html";
 static const char PATH_WEB_ROOT[]              = "/";
 static const char PATH_WEB_HEAP[]              = "/heap";
@@ -186,7 +199,7 @@ struct _sWsJSONMsg {
  * Global instances
  */
 TFT_eSPI          gi_Tft{};                         // TFT display driver
-LittleFSConfig    gi_FSConfig{};                    // file system configuration
+//LittleFSConfig    gi_FSConfig{};                    // file system configuration
 
 TSensor           gi_TS{D2, false};                 // MAX31855 K-type temperature sensor instance
 // Enable only one PID control instance
@@ -816,12 +829,14 @@ void setup() {
   wSS.lblStatus = F("Init filesystem...");
   wSS.Render(false);
 
-  gi_FSConfig.setAutoFormat(false);
+  #define FORMAT_LITTLEFS_IF_FAILED true
+  LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED);
+  /*gi_FSConfig.setAutoFormat(false);
   LittleFS.setConfig(gi_FSConfig);
   if(!LittleFS.begin()){
     LittleFS.format();
     LittleFS.begin();
-  }
+  }*/
 
   wSS.pbrProgress.SetProgress(10);
 
@@ -953,7 +968,7 @@ void setup() {
   gi_WebServer.addHandler(&gi_WebSocket);
 
   // add hook to /heap path - show free heap for monitoring purposes
-  gi_WebServer.on(PATH_WEB_HEAP, HTTP_GET, [](AsyncWebServerRequest *request){ request->send(200, FPSTR(FILE_WEB_CT_TXT), F("Free heap: ") + String(ESP.getFreeHeap())); });
+  gi_WebServer.on(PATH_WEB_HEAP, HTTP_GET, [](AsyncWebServerRequest *request){ request->send(200, FPSTR(FILE_WEB_CT_TXT), String(F("Free heap: ")) + String(ESP.getFreeHeap())); });
   
   // serve files from filesystem with default being index.html
   gi_WebServer.serveStatic(PATH_WEB_ROOT, LittleFS, PATH_WEB_ROOT).setDefaultFile(FILE_WEB_INDEX);

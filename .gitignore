@@ -2,10 +2,16 @@
 tools/
 
 # ignore all libraries except specific to this project
-libraries/ArduinoJson/
-libraries/ESPAsyncTCP/
-libraries/ESPAsyncWebServer/
-libraries/TFT_eSPI/
+libraries/
+!libraries/DeskTop/
+!libraries/PIDControl/
+!libraries/TemperatureSensor/
+!libraries/TProgram/
+#libraries/ArduinoJson/
+#libraries/ESPAsyncTCP/
+#libraries/ESPAsyncWebServer/
+#libraries/TFT_eSPI/
+#libraries/lvgl/
 
 # ignore some specific sketch files
 Oven/CompilerResults.txt

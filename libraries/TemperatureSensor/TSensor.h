@@ -17,6 +17,8 @@
 #ifndef TSensor_h
 #define TSensor_h
 
+#include <math.h>
+#include <Arduino.h>
 #include <SPI.h>
 
 #define TSENSOR_SPI_FREQUENCY   5000000     // SPI frequency in Hz, 5Mhz max according to MAX31855 specification
