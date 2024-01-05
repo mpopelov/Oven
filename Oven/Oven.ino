@@ -66,58 +66,58 @@
  * Global string constants
  */
 // file names and paths (also for web server)
-static const char FILE_CONFIGURATION[] PROGMEM = "/oven.json";
-static const char FILE_PROGRAMS[] PROGMEM      = "/programs.json";
-static const char FILE_WEB_INDEX[]             = "index.html";
-static const char PATH_WEB_ROOT[]              = "/";
-static const char PATH_WEB_HEAP[]              = "/heap";
-static const char PATH_WEB_WS[] PROGMEM        = "/ws";
-static const char FILE_WEB_CT_TXT[] PROGMEM    = "text/plain";
+const char FILE_CONFIGURATION[]  = "/oven.json";
+const char FILE_PROGRAMS[]       = "/programs.json";
+const char FILE_WEB_INDEX[]      = "index.html";
+const char PATH_WEB_ROOT[]       = "/";
+const char PATH_WEB_HEAP[]       = "/heap";
+const char PATH_WEB_WS[]         = "/ws";
+const char FILE_WEB_CT_TXT[]     = "text/plain";
 
 // button text strings
-static const char BTN_START[] PROGMEM         = "Start";
-static const char BTN_STOP[] PROGMEM          = "Stop";
-static const char BTN_PROG[] PROGMEM          = "Prog";
+const char BTN_START[]           = "Start";
+const char BTN_STOP[]            = "Stop";
+const char BTN_PROG[]            = "Prog";
 // label text strings
-static const char LBL_EMPTY[] PROGMEM         = "---";
-static const char LBL_TEMPREMPTY[] PROGMEM    = "----C";
-static const char LBL_TIMEREMPTY[] PROGMEM    = "00:00:00";
-static const char LBL_PROG[] PROGMEM          = "Program: ";
-static const char LBL_STEP[] PROGMEM          = "Step: ";
-static const char LBL_OF[] PROGMEM            = " of ";
-static const char LBL_STEPTARGET[] PROGMEM    = "Step target: ";
-static const char LBL_STEPTIME[] PROGMEM      = "Step remaining: ";
-static const char LBL_TIMEREMAINING[] PROGMEM = "Program remaining: ";
-static const char LBL_DEGC[] PROGMEM = " C";
+const char LBL_EMPTY[]           = "---";
+const char LBL_TEMPREMPTY[]      = "----C";
+const char LBL_TIMEREMPTY[]      = "00:00:00";
+const char LBL_PROG[]            = "Program: ";
+const char LBL_STEP[]            = "Step: ";
+const char LBL_OF[]              = " of ";
+const char LBL_STEPTARGET[]      = "Step target: ";
+const char LBL_STEPTIME[]        = "Step remaining: ";
+const char LBL_TIMEREMAINING[]   = "Program remaining: ";
+const char LBL_DEGC[]            = " C";
 
 // JSON message / configuration elements and defines
 #define JSON_BUFFER_MAX_SIZE 8192   // maximum message/buffer size
 #define JSON_DOCUMENT_MAX_SIZE 8192 // maximum size of JSON document allowed
 
-static const char JSCONF_POLL[] PROGMEM                   = "poll";
+const char JSCONF_POLL[]                    = "poll";
 
-static const char JSCONF_TFT[] PROGMEM                    = "TFT";
+const char JSCONF_TFT[]                     = "TFT";
 
-static const char JSCONF_WIFI[] PROGMEM                   = "WiFi";
-static const char JSCONF_WIFI_SSID[] PROGMEM              = "SSID";
-static const char JSCONF_WIFI_KEY[] PROGMEM               = "KEY";
-static const char JSCONF_WIFI_IP[] PROGMEM                = "IP";
+const char JSCONF_WIFI[]                    = "WiFi";
+const char JSCONF_WIFI_SSID[]               = "SSID";
+const char JSCONF_WIFI_KEY[]                = "KEY";
+const char JSCONF_WIFI_IP[]                 = "IP";
 
-static const char JSCONF_PID[] PROGMEM                    = "PID";
-static const char JSCONF_PID_KP[] PROGMEM                 = "KP";
-static const char JSCONF_PID_KI[] PROGMEM                 = "KI";
-static const char JSCONF_PID_KD[] PROGMEM                 = "KD";
-static const char JSCONF_PID_TOLERANCE[] PROGMEM          = "TOL";
+const char JSCONF_PID[]                     = "PID";
+const char JSCONF_PID_KP[]                  = "KP";
+const char JSCONF_PID_KI[]                  = "KI";
+const char JSCONF_PID_KD[]                  = "KD";
+const char JSCONF_PID_TOLERANCE[]           = "TOL";
 
-static const char JSCONF_PROGRAMS[] PROGMEM               = "Programs";
-static const char JSCONF_PROGRAM_NAME[] PROGMEM           = "Name";
-static const char JSCONF_PROGRAM_STEPS[] PROGMEM          = "steps";
-static const char JSCONF_PROGRAM_STEP_TSTART[] PROGMEM    = "tStart";
-static const char JSCONF_PROGRAM_STEP_TEND[] PROGMEM      = "tEnd";
-static const char JSCONF_PROGRAM_STEP_DURATION[] PROGMEM  = "duration";
+const char JSCONF_PROGRAMS[]                = "Programs";
+const char JSCONF_PROGRAM_NAME[]            = "Name";
+const char JSCONF_PROGRAM_STEPS[]           = "steps";
+const char JSCONF_PROGRAM_STEP_TSTART[]     = "tStart";
+const char JSCONF_PROGRAM_STEP_TEND[]       = "tEnd";
+const char JSCONF_PROGRAM_STEP_DURATION[]   = "duration";
 
-static const char JSON_RESPONSE_TEMPLATE_OK[]             = "{\"id\":\"OK\",\"details\":\"%s\"}";
-static const char JSON_RESPONSE_TEMPLATE_ERR[]            = "{\"id\":\"ERR\",\"details\":\"%s\"}";
+const char JSON_RESPONSE_TEMPLATE_OK[]             = "{\"id\":\"OK\",\"details\":\"%s\"}";
+const char JSON_RESPONSE_TEMPLATE_ERR[]            = "{\"id\":\"ERR\",\"details\":\"%s\"}";
 
 
 /**
@@ -199,7 +199,6 @@ struct _sWsJSONMsg {
  * Global instances
  */
 TFT_eSPI          gi_Tft{};                         // TFT display driver
-//LittleFSConfig    gi_FSConfig{};                    // file system configuration
 
 TSensor           gi_TS{D2, false};                 // MAX31855 K-type temperature sensor instance
 // Enable only one PID control instance
@@ -208,7 +207,7 @@ PIDControlBasic   gp_PID{};
 //PIDControlIIR     gp_PID{};
 
 AsyncWebServer    gi_WebServer{80};                 // a web server instance
-AsyncWebSocket    gi_WebSocket{FPSTR(PATH_WEB_WS)}; // web socket for communicating with OvenWEB
+AsyncWebSocket    gi_WebSocket{PATH_WEB_WS}; // web socket for communicating with OvenWEB
 
 StaticJsonDocument<JSON_DOCUMENT_MAX_SIZE> gi_JDoc;
 
@@ -253,10 +252,10 @@ class cPgmSelectWindow : public DTWindow {
   public:
   cPgmSelectWindow(TFT_eSPI& gfx, DTDelegate callback) :
   DTWindow( gfx, 0, 0, 320, 240, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND),
-      btnUp( gfx, 270,   0,  50,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSB2, F("UP"), DTDelegate::create<cPgmSelectWindow,&cPgmSelectWindow::OnButton_Up>(this)),
-      btnOk( gfx, 270,  51,  50,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREEN, DT_C_BACKGROUND, &FSB2, F("OK"), DTDelegate::create<cPgmSelectWindow,&cPgmSelectWindow::OnButton_Ok>(this)),
-  btnCancel( gfx, 270, 102,  50,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_RED, DT_C_BACKGROUND, &FSB2, F("X"), DTDelegate::create<cPgmSelectWindow,&cPgmSelectWindow::OnButton_Cancel>(this)),
-    btnDown( gfx, 270, 153,  50,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSB2, F("DN"), DTDelegate::create<cPgmSelectWindow,&cPgmSelectWindow::OnButton_Down>(this)),
+      btnUp( gfx, 270,   0,  50,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSB2, "UP", DTDelegate::create<cPgmSelectWindow,&cPgmSelectWindow::OnButton_Up>(this)),
+      btnOk( gfx, 270,  51,  50,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREEN, DT_C_BACKGROUND, &FSB2, "OK", DTDelegate::create<cPgmSelectWindow,&cPgmSelectWindow::OnButton_Ok>(this)),
+  btnCancel( gfx, 270, 102,  50,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_RED, DT_C_BACKGROUND, &FSB2, "X", DTDelegate::create<cPgmSelectWindow,&cPgmSelectWindow::OnButton_Cancel>(this)),
+    btnDown( gfx, 270, 153,  50,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSB2, "DN", DTDelegate::create<cPgmSelectWindow,&cPgmSelectWindow::OnButton_Down>(this)),
    selProgs( gfx,   0,   0, 269, 240, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_LIGHTGREEN, DT_C_BACKGROUND, DT_C_BACKGROUND, DT_C_LIGHTGREEN, &FSN1),
   _Result(false), _callback(callback)
   {
@@ -298,34 +297,33 @@ class cMainWindow : public DTWindow {
   _PgmSelectWindowOn(false), SWnd(nullptr),
   DTWindow(gfx, 0, 0, 320, 240, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND),
   // initialize child elements
-              btnProg( gfx, 250,   0,  70,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSB2, FPSTR(BTN_PROG), DTDelegate::create<cMainWindow,&cMainWindow::OnButton_PGM>(this)),
-             btnStart( gfx, 250,  51,  70,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREEN, DT_C_BACKGROUND, &FSB2, FPSTR(BTN_START), DTDelegate::create<cMainWindow,&cMainWindow::OnButton_STRTSTP>(this)),
+              btnProg( gfx, 250,   0,  70,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSB2, BTN_PROG, DTDelegate::create<cMainWindow,&cMainWindow::OnButton_PGM>(this)),
+             btnStart( gfx, 250,  51,  70,  50, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREEN, DT_C_BACKGROUND, &FSB2, BTN_START, DTDelegate::create<cMainWindow,&cMainWindow::OnButton_STRTSTP>(this)),
   // program details - Y offset 0
-           lblProgram( gfx,   0,   0,  80,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_PROG)),
-       lblProgramName( gfx,  80,   0, 170,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_EMPTY)),
+           lblProgram( gfx,   0,   0,  80,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_PROG),
+       lblProgramName( gfx,  80,   0, 170,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_EMPTY),
   // step details + forward and backward butons - Y offset 25
               btnSBck( gfx,   0,  25,  50,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSN1, "<", DTDelegate::create<cMainWindow,&cMainWindow::OnButton_SBck>(this)),
-              lblStep( gfx,  50,  25,  50,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_STEP)),
-        lblStepNumber( gfx, 100,  25,  30,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_EMPTY)),
-            lblStepOf( gfx, 130,  25,  30,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_OF)),
-         lblStepTotal( gfx, 160,  25,  30,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_EMPTY)),
+              lblStep( gfx,  50,  25,  50,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_STEP),
+        lblStepNumber( gfx, 100,  25,  30,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_EMPTY),
+            lblStepOf( gfx, 130,  25,  30,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_OF),
+         lblStepTotal( gfx, 160,  25,  30,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_EMPTY),
               btnSFwd( gfx, 190,  25,  50,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_GREY, DT_C_BACKGROUND, &FSN1, ">", DTDelegate::create<cMainWindow,&cMainWindow::OnButton_SFwd>(this)),
   // temperature main display - Y offset 50
-             lblTempr( gfx,   0,  50, 240,  85, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSB4, FPSTR(LBL_TEMPREMPTY)),
-       lblTemprTarget( gfx, 130, 135,  90,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_TEMPREMPTY)),
+             lblTempr( gfx,   0,  50, 240,  85, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSB4, LBL_TEMPREMPTY),
+       lblTemprTarget( gfx, 130, 135,  90,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_TEMPREMPTY),
   // step timing values - Y offset 160
-          lblStepTime( gfx,   0, 160, 170,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_STEPTIME)),
-     lblStepTimeValue( gfx, 170, 160,  75,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_TIMEREMPTY)),
+          lblStepTime( gfx,   0, 160, 170,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_STEPTIME),
+     lblStepTimeValue( gfx, 170, 160,  75,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_TIMEREMPTY),
   // displaying program timer - Y offset 185
-       lblProgramTime( gfx,   0, 185, 170,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_TIMEREMAINING)),
-  lblProgramTimeValue( gfx, 170, 185,  75,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, FPSTR(LBL_TIMEREMPTY)),
+       lblProgramTime( gfx,   0, 185, 170,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_TIMEREMAINING),
+  lblProgramTimeValue( gfx, 170, 185,  75,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_TIMEREMPTY),
   // status label - Y offset 210
-            lblStatus( gfx,   0, 210, 320,  30, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, F("Initializing..."))
+            lblStatus( gfx,   0, 210, 320,  30, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, "Initializing...")
   {
     // Pre-allocate some space for labels that will have changing content
     // and their content is bigger than SSO buffer of String class.
     // Static text labels are ok as they are going to remain as is and most often fit into SSO buffer.
-    // buttons should be ok with SSO built into String class on ESP8266
 
     lblProgramName.reserve(32);
     lblStepNumber.reserve(12);
@@ -455,19 +453,19 @@ class cMainWindow : public DTWindow {
       // if program is running - update with setpoint value
       // if program is not running - update with target temperature of current step
       if(State.isPgmRunning){
-        (lblTemprTarget = String(State.tSP,2)) += FPSTR(LBL_DEGC);
+        (lblTemprTarget = String(State.tSP,2)) += LBL_DEGC;
       }else{
         lblTemprTarget.SetTextColor(DT_C_LIGHTGREEN);
-        (lblTemprTarget = String(State.ActiveProgram.GetTemperatureStepEnd(),2)) += FPSTR(LBL_DEGC);
+        (lblTemprTarget = String(State.ActiveProgram.GetTemperatureStepEnd(),2)) += LBL_DEGC;
       }
 
     }else{
       // no valid program selected - update with initial "empty" values
-      lblStepNumber = FPSTR(LBL_EMPTY);
-      lblStepTotal = FPSTR(LBL_EMPTY);
-      lblProgramTimeValue = FPSTR(LBL_TIMEREMPTY);
-      lblStepTimeValue = FPSTR(LBL_TIMEREMPTY);
-      lblTemprTarget = FPSTR(LBL_TEMPREMPTY);
+      lblStepNumber = LBL_EMPTY;
+      lblStepTotal = LBL_EMPTY;
+      lblProgramTimeValue = LBL_TIMEREMPTY;
+      lblStepTimeValue = LBL_TIMEREMPTY;
+      lblTemprTarget = LBL_TEMPREMPTY;
     }
   }
 
@@ -542,16 +540,16 @@ cMainWindow wnd{gi_Tft}; // main window instance
 void UpdateRunningConfig(JsonObject& joConfig, bool startup){
   
   // a. read TFT parameters
-  if( JsonObject obj = joConfig[FPSTR(JSCONF_TFT)] ){
+  if( JsonObject obj = joConfig[JSCONF_TFT] ){
     // TFT section is present in the document
     
     // set TFT touch sensor polling interval
-    Configuration.TFT.poll = obj[FPSTR(JSCONF_POLL)] | DEFAULT_TFT_POLL;
+    Configuration.TFT.poll = obj[JSCONF_POLL] | DEFAULT_TFT_POLL;
 
     // calibration data should only be set during startup
     if(startup){
     // try to read TS parameters saved earlier
-      if( JsonArray arr = obj[FPSTR(JSCONF_TFT)] ){
+      if( JsonArray arr = obj[JSCONF_TFT] ){
         if( arr.size() == 3 ){
           // try parse data from JSON config
           Configuration.TFT.data.tft[0] = arr[0] | 0;
@@ -564,21 +562,21 @@ void UpdateRunningConfig(JsonObject& joConfig, bool startup){
   if(!startup) yield();
         
   // b. read WiFi parameters
-  if( JsonObject obj = joConfig[FPSTR(JSCONF_WIFI)] ){
+  if( JsonObject obj = joConfig[JSCONF_WIFI] ){
     // WiFi section is present in the document
-    Configuration.WiFi.SSID = obj[FPSTR(JSCONF_WIFI_SSID)].as<const char*>();
-    Configuration.WiFi.KEY = obj[FPSTR(JSCONF_WIFI_KEY)].as<const char *>();
+    Configuration.WiFi.SSID = obj[JSCONF_WIFI_SSID].as<const char*>();
+    Configuration.WiFi.KEY = obj[JSCONF_WIFI_KEY].as<const char *>();
   }
   if(!startup) yield();
 
   // c. read PID parameters
-  if( JsonObject obj = joConfig[FPSTR(JSCONF_PID)] ){
+  if( JsonObject obj = joConfig[JSCONF_PID] ){
     // PID section is present in the document
-    Configuration.PID.poll = obj[FPSTR(JSCONF_POLL)] | DEFAULT_PID_POLL;
-    Configuration.PID.KP = obj[FPSTR(JSCONF_PID_KP)] | DEFAULT_PID_PRM;
-    Configuration.PID.KI = obj[FPSTR(JSCONF_PID_KI)] | DEFAULT_PID_PRM;
-    Configuration.PID.KD = obj[FPSTR(JSCONF_PID_KD)] | DEFAULT_PID_PRM;
-    Configuration.PID.TOL = obj[FPSTR(JSCONF_PID_TOLERANCE)] | DEFAULT_PID_PRM;
+    Configuration.PID.poll = obj[JSCONF_POLL] | DEFAULT_PID_POLL;
+    Configuration.PID.KP = obj[JSCONF_PID_KP] | DEFAULT_PID_PRM;
+    Configuration.PID.KI = obj[JSCONF_PID_KI] | DEFAULT_PID_PRM;
+    Configuration.PID.KD = obj[JSCONF_PID_KD] | DEFAULT_PID_PRM;
+    Configuration.PID.TOL = obj[JSCONF_PID_TOLERANCE] | DEFAULT_PID_PRM;
   }
 }
 
@@ -590,29 +588,39 @@ void UpdateRunningConfig(JsonObject& joConfig, bool startup){
  */
 void UpdateRunningPrograms(JsonArray& jaPrograms, bool startup){
   int nPrograms = jaPrograms.size();
-  // limit the number of pregrams that might be in the configuration file to built-in max number of programs
+  // limit the number of programs that might be in the configuration file to built-in max number of programs
   nPrograms = nPrograms > DEFAULT_MAX_PROGRAMS ? DEFAULT_MAX_PROGRAMS : nPrograms;
+  Serial.print("Found programs: ");
+  Serial.println(nPrograms, DEC);
 
   // array contains elements - read up to a maximum of DEFAULT_MAX_PROGRAMS
   for(int i = 0; i < nPrograms; i++){
     // program might be malformed in JSON for some reason - make sure it is not pointing anywhere
     if( JsonObject pobj = jaPrograms[i] ){
       // try reading steps - create program only in case steps are defined
-      if(JsonArray sarr = pobj[FPSTR(JSCONF_PROGRAM_STEPS)]){
+      if(JsonArray sarr = pobj[JSCONF_PROGRAM_STEPS]){
         // steps are defined - create program and try populating it with steps
         int nSteps = sarr.size();
+        Serial.print("Found program steps array of length: ");
+        Serial.println(sarr.size(), DEC);
+
         // make sure to read to a maximum of TPGM_STEPS_MAX
         nSteps = nSteps > TPGM_STEPS_MAX ? TPGM_STEPS_MAX : nSteps;
         // set program name
-        Configuration.Programs[i].SetName(pobj[FPSTR(JSCONF_PROGRAM_NAME)] | "");
+        Configuration.Programs[i].SetName(pobj[JSCONF_PROGRAM_NAME] | "");
+
+        Serial.print("Program: ");
+        Serial.println(Configuration.Programs[i].GetName());
+        Serial.print("Found steps: ");
+        Serial.println(nSteps, DEC);
 
         // read and add every step we can accomodate
         for( int j = 0; j < nSteps; j++){
           if( JsonObject sobj = sarr[j] ){
             // add step in case it is represented as a valid JSON object
-            Configuration.Programs[i].AddStep(sobj[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] | 0.0,
-                                              sobj[FPSTR(JSCONF_PROGRAM_STEP_TEND)] | 0.0,
-                                              sobj[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] | 0 );
+            Configuration.Programs[i].AddStep(sobj[JSCONF_PROGRAM_STEP_TSTART] | 0.0,
+                                              sobj[JSCONF_PROGRAM_STEP_TEND] | 0.0,
+                                              sobj[JSCONF_PROGRAM_STEP_DURATION] | 0 );
           }
         }
         Configuration.Programs[i].Reset(); // reset program to ready state
@@ -641,25 +649,25 @@ void BuildRunningConfig(JsonObject& joConfig){
   //     As we are serializing into the Async*** buffer in the end there is no worry values will change before actually sent over WiFi
 
   // add TFT information
-  JsonObject joTFT = joConfig.createNestedObject(FPSTR(JSCONF_TFT));
-  joTFT[FPSTR(JSCONF_POLL)] = Configuration.TFT.poll;
-  JsonArray jaTFT = joTFT.createNestedArray(FPSTR(JSCONF_TFT));
+  JsonObject joTFT = joConfig.createNestedObject(JSCONF_TFT);
+  joTFT[JSCONF_POLL] = Configuration.TFT.poll;
+  JsonArray jaTFT = joTFT.createNestedArray(JSCONF_TFT);
   jaTFT.add(Configuration.TFT.data.tft[0]);
   jaTFT.add(Configuration.TFT.data.tft[1]);
   jaTFT.add(Configuration.TFT.data.tft[2]);
 
   // add WiFi information
-  JsonObject joWiFi = joConfig.createNestedObject(FPSTR(JSCONF_WIFI));
-  joWiFi[FPSTR(JSCONF_WIFI_SSID)] = Configuration.WiFi.SSID.c_str(); // prevent copying string
-  joWiFi[FPSTR(JSCONF_WIFI_KEY)] = Configuration.WiFi.KEY.c_str(); // prevent copying string
+  JsonObject joWiFi = joConfig.createNestedObject(JSCONF_WIFI);
+  joWiFi[JSCONF_WIFI_SSID] = Configuration.WiFi.SSID.c_str(); // prevent copying string
+  joWiFi[JSCONF_WIFI_KEY] = Configuration.WiFi.KEY.c_str(); // prevent copying string
 
   // add PID information
-  JsonObject joPID = joConfig.createNestedObject(FPSTR(JSCONF_PID));
-  joPID[FPSTR(JSCONF_POLL)] = Configuration.PID.poll;
-  joPID[FPSTR(JSCONF_PID_KP)] = Configuration.PID.KP;
-  joPID[FPSTR(JSCONF_PID_KI)] = Configuration.PID.KI;
-  joPID[FPSTR(JSCONF_PID_KD)] = Configuration.PID.KD;
-  joPID[FPSTR(JSCONF_PID_TOLERANCE)] = Configuration.PID.TOL;
+  JsonObject joPID = joConfig.createNestedObject(JSCONF_PID);
+  joPID[JSCONF_POLL] = Configuration.PID.poll;
+  joPID[JSCONF_PID_KP] = Configuration.PID.KP;
+  joPID[JSCONF_PID_KI] = Configuration.PID.KI;
+  joPID[JSCONF_PID_KD] = Configuration.PID.KD;
+  joPID[JSCONF_PID_TOLERANCE] = Configuration.PID.TOL;
 
   // end building up configuration
 }
@@ -677,10 +685,10 @@ void BuildRunningPrograms(JsonArray& jaPrograms){
       JsonObject joProgram = jaPrograms.createNestedObject();
 
       // set current program name
-      joProgram[FPSTR(JSCONF_PROGRAM_NAME)] = Configuration.Programs[i].GetName(); // prevent copying string
+      joProgram[JSCONF_PROGRAM_NAME] = Configuration.Programs[i].GetName(); // prevent copying string
 
       // add steps array
-      JsonArray jaSteps = joProgram.createNestedArray(FPSTR(JSCONF_PROGRAM_STEPS));
+      JsonArray jaSteps = joProgram.createNestedArray(JSCONF_PROGRAM_STEPS);
 
       // for each step create nested object and set values
       for(int j = 0; j < Configuration.Programs[i].GetStepsTotal(); j++){
@@ -688,9 +696,9 @@ void BuildRunningPrograms(JsonArray& jaPrograms){
         JsonObject joStep = jaSteps.createNestedObject();
         TProgramStep* currStep = Configuration.Programs[i].GetStep(j);
 
-        joStep[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] = currStep->GetTStart();
-        joStep[FPSTR(JSCONF_PROGRAM_STEP_TEND)] = currStep->GetTEnd();
-        joStep[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] = currStep->GetDuration();
+        joStep[JSCONF_PROGRAM_STEP_TSTART] = currStep->GetTStart();
+        joStep[JSCONF_PROGRAM_STEP_TEND] = currStep->GetTEnd();
+        joStep[JSCONF_PROGRAM_STEP_DURATION] = currStep->GetDuration();
       }
     }
   }
@@ -807,6 +815,7 @@ void onWSEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
  *          - Launches web server
  */
 void setup() {
+  Serial.begin(115200);
   cSplashScreenWindow wSS{gi_Tft};  // splash screen window
 
   // initialize screen
@@ -817,7 +826,7 @@ void setup() {
   // prepare and show splash screen
   wSS.pbrProgress.SetProgress(1);
   wSS.lblStatus.SetTextAlignment(CENTER);
-  wSS.lblStatus = F("Starting controller...");
+  wSS.lblStatus = "Starting controller...";
   wSS.Render(false);
   
   pinMode(D1, OUTPUT);    // set relay pin mode to output
@@ -826,29 +835,23 @@ void setup() {
   wSS.pbrProgress.SetProgress(5);
 
   // 01. Initialize filesystem support
-  wSS.lblStatus = F("Init filesystem...");
+  wSS.lblStatus = "Init filesystem...";
   wSS.Render(false);
 
   #define FORMAT_LITTLEFS_IF_FAILED true
   LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED);
-  /*gi_FSConfig.setAutoFormat(false);
-  LittleFS.setConfig(gi_FSConfig);
-  if(!LittleFS.begin()){
-    LittleFS.format();
-    LittleFS.begin();
-  }*/
 
   wSS.pbrProgress.SetProgress(10);
 
   // 02. Try to read and parse configuration
-  wSS.lblStatus = F("Reading config...");
+  wSS.lblStatus = "Reading config...";
   wSS.Render(false);
 
   // check if configuration file exists
   // if it does - read JSON and fill in configuration structure
-  if (LittleFS.exists(FPSTR(FILE_CONFIGURATION))) {
+  if (LittleFS.exists(FILE_CONFIGURATION)) {
 
-    File f = LittleFS.open(FPSTR(FILE_CONFIGURATION), "r");
+    File f = LittleFS.open(FILE_CONFIGURATION, "r");
 
     if (f) {
       // try deserializing from JSON config file
@@ -870,14 +873,14 @@ void setup() {
   wSS.pbrProgress.SetProgress(30);
 
   // 03. Try to read and parse preograms
-  wSS.lblStatus = F("Reading programs...");
+  wSS.lblStatus = "Reading programs...";
   wSS.Render(false);
 
   // check if programs file exists
   // if it does - read JSON and fill in programs array
-  if (LittleFS.exists(FPSTR(FILE_PROGRAMS))) {
+  if (LittleFS.exists(FILE_PROGRAMS)) {
 
-    File f = LittleFS.open(FPSTR(FILE_PROGRAMS), "r");
+    File f = LittleFS.open(FILE_PROGRAMS, "r");
 
     if (f) {
       // try deserializing from JSON programs file
@@ -899,7 +902,7 @@ void setup() {
   wSS.pbrProgress.SetProgress(50);
 
   // 04. Calibrate touch screen if necessary
-  wSS.lblStatus = F("Setting up touchscreen...");
+  wSS.lblStatus = "Setting up touchscreen...";
   wSS.Render(false);
 
   bool calDataOK = ( Configuration.TFT.data.tft[0] != 0 && Configuration.TFT.data.tft[1] != 0 && Configuration.TFT.data.tft[2] != 0);
@@ -911,20 +914,20 @@ void setup() {
 
     // set text color to red
     wSS.lblStatus.SetTextColor(DT_C_RED);
-    wSS.lblStatus = F("Touch screen corners as indicated");
+    wSS.lblStatus = "Touch screen corners as indicated";
     wSS.Render(false);
 
     gi_Tft.calibrateTouch(Configuration.TFT.data.raw, DT_C_RED, DT_C_BACKGROUND, 20);
 
     // set text color to green
     wSS.lblStatus.SetTextColor(DT_C_GREEN);
-    wSS.lblStatus = F("Calibration complete!");
+    wSS.lblStatus = "Calibration complete!";
     wSS.Render(false);
     // reset color to normal
     wSS.lblStatus.SetTextColor(DT_C_LIGHTGREEN);
 
     // Save configuration to avoid re-calibration on restarts
-    File f = LittleFS.open(FPSTR(FILE_CONFIGURATION), "w");
+    File f = LittleFS.open(FILE_CONFIGURATION, "w");
 
     if (f) {
       JsonObject joConfig = gi_JDoc.to<JsonObject>();
@@ -942,7 +945,7 @@ void setup() {
   wSS.pbrProgress.SetProgress(70);
 
   // 0.4 Attempt to connect to WiFi (if can not - try to launch self in AP mode ?)
-  (wSS.lblStatus = F("Connecting to WiFi ")) += Configuration.WiFi.SSID;
+  (wSS.lblStatus = "Connecting to WiFi ") += Configuration.WiFi.SSID;
   wSS.Render(false);
 
   // if WiFi is not configured or not reachable - shall controller launch in AP mode ?
@@ -960,7 +963,7 @@ void setup() {
   wSS.pbrProgress.SetProgress(90);
 
   // 0.5 Start web server
-  wSS.lblStatus = F("Starting Web server");
+  wSS.lblStatus = "Starting Web server";
   wSS.Render(false);
 
   // attach event to web socket instance
@@ -968,19 +971,19 @@ void setup() {
   gi_WebServer.addHandler(&gi_WebSocket);
 
   // add hook to /heap path - show free heap for monitoring purposes
-  gi_WebServer.on(PATH_WEB_HEAP, HTTP_GET, [](AsyncWebServerRequest *request){ request->send(200, FPSTR(FILE_WEB_CT_TXT), String(F("Free heap: ")) + String(ESP.getFreeHeap())); });
+  gi_WebServer.on(PATH_WEB_HEAP, HTTP_GET, [](AsyncWebServerRequest *request){ request->send(200, FILE_WEB_CT_TXT, String("Free heap: ") + String(ESP.getFreeHeap())); });
   
   // serve files from filesystem with default being index.html
   gi_WebServer.serveStatic(PATH_WEB_ROOT, LittleFS, PATH_WEB_ROOT).setDefaultFile(FILE_WEB_INDEX);
   
   // add response hook on invalid paths HTTP: 404
-  gi_WebServer.onNotFound([](AsyncWebServerRequest *request) { request->send(404, FPSTR(FILE_WEB_CT_TXT), F("Nothing found :(")); });
+  gi_WebServer.onNotFound([](AsyncWebServerRequest *request) { request->send(404, FILE_WEB_CT_TXT, "Nothing found :("); });
 
   // finally start the server
   gi_WebServer.begin();
 
   //wSS.lblStatus.SetText(F("Done"));
-  wSS.lblStatus = F("Done");
+  wSS.lblStatus = "Done";
   wSS.pbrProgress.SetProgress(100);
   wSS.Render(false);
   delay(1000);
@@ -1031,7 +1034,7 @@ void loop() {
         State.isPgmRunning = true;
 
         // update GUI
-        wnd.btnStart = FPSTR(BTN_STOP);
+        wnd.btnStart = BTN_STOP;
         wnd.btnStart.SetBtnColor(DT_C_RED);
       }else{
         // no active program - reset flag to avoid confusion
@@ -1052,8 +1055,8 @@ void loop() {
       State.isPgmRunning = false;
 
       // update TFT screen
-      wnd.lblStatus = F("Program has ended");
-      wnd.btnStart = FPSTR(BTN_START);
+      wnd.lblStatus = "Program has ended";
+      wnd.btnStart = BTN_START;
       wnd.btnStart.SetBtnColor(DT_C_GREEN);
     } // else no program is running and there is no need to do anything
   }
@@ -1095,12 +1098,12 @@ void loop() {
 
     if(faultCode){
       // an error occured
-      if (faultCode & 0b001) { wnd.lblStatus = F("ERR: Sensor not connected"); }
-      if (faultCode & 0b010) { wnd.lblStatus = F("ERR: Sensor s-c to GND(-)"); }
-      if (faultCode & 0b100) { wnd.lblStatus = F("ERR: Sensor s-c to VCC(+)"); }
-      wnd.lblTempr = FPSTR(LBL_TEMPREMPTY);
+      if (faultCode & 0b001) { wnd.lblStatus = "ERR: Sensor not connected"; }
+      if (faultCode & 0b010) { wnd.lblStatus = "ERR: Sensor s-c to GND(-)"; }
+      if (faultCode & 0b100) { wnd.lblStatus = "ERR: Sensor s-c to VCC(+)"; }
+      wnd.lblTempr = LBL_TEMPREMPTY;
     }else{
-      (wnd.lblTempr = String(State.tProbe, 1)) += FPSTR(LBL_DEGC);
+      (wnd.lblTempr = String(State.tProbe, 1)) += LBL_DEGC;
     }
 
     // check if program is in Running state
@@ -1116,7 +1119,7 @@ void loop() {
         State.isRelayOn = false;
 
         State.StartStop = false;
-        wnd.lblStatus = F("Program terminating...");
+        wnd.lblStatus = "Program terminating...";
       }else{
         // do common stuff - calculate controlling signal and turn relay on/off accordingly
         State.U = gp_PID.Evaluate(State.tSP, State.tProbe, State.U);
@@ -1133,7 +1136,7 @@ void loop() {
 
         wnd.UpdateProgramDisplay();
 
-        (wnd.lblStatus = F("Control U = ")) += String(State.U,6);
+        (wnd.lblStatus = "Control U = ") += String(State.U,6);
       }
 
     } // end if(isPgmRunning)
@@ -1142,7 +1145,7 @@ void loop() {
     //
     if(stsrtr == STS_ROTATE_EVERY) {
       stsrtr = 0;
-      (wnd.lblStatus = F("IP address: ")) += WiFi.localIP().toString();
+      (wnd.lblStatus = "IP address: ") += WiFi.localIP().toString();
     }else{
       stsrtr++;
     }
@@ -1171,16 +1174,16 @@ void loop() {
 
         // add active program
         JsonObject joProgram = joStatus.createNestedObject("actPgm");
-        joProgram[FPSTR(JSCONF_PROGRAM_NAME)] = State.ActiveProgram.GetName();
+        joProgram[JSCONF_PROGRAM_NAME] = State.ActiveProgram.GetName();
 
         // add steps array and loop through all steps adding their parameters
-        JsonArray jaSteps = joProgram.createNestedArray(FPSTR(JSCONF_PROGRAM_STEPS));
+        JsonArray jaSteps = joProgram.createNestedArray(JSCONF_PROGRAM_STEPS);
         for(int i = 0; i < State.ActiveProgram.GetStepsTotal(); i++){
           JsonObject joStep = jaSteps.createNestedObject();
           TProgramStep* currStep = State.ActiveProgram.GetStep(i);
-          joStep[FPSTR(JSCONF_PROGRAM_STEP_TSTART)] = currStep->GetTStart(); // start temperature
-          joStep[FPSTR(JSCONF_PROGRAM_STEP_TEND)] = currStep->GetTEnd(); // end temperature
-          joStep[FPSTR(JSCONF_PROGRAM_STEP_DURATION)] = currStep->GetDuration(); // duration in ms
+          joStep[JSCONF_PROGRAM_STEP_TSTART] = currStep->GetTStart(); // start temperature
+          joStep[JSCONF_PROGRAM_STEP_TEND] = currStep->GetTEnd(); // end temperature
+          joStep[JSCONF_PROGRAM_STEP_DURATION] = currStep->GetDuration(); // duration in ms
         }
       }else{
         // there is no active program

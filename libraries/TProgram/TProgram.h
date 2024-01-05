@@ -13,6 +13,7 @@
 #define TProgram_h
 
 #include <Arduino.h>
+#include <math.h>
 
 #define TPGM_NAME_LEN   32  // length of program name
 #define TPGM_STEPS_MAX  10  // maximun number of steps per program

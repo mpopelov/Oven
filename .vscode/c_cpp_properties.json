@@ -1,26 +1,36 @@
 {
     "configurations": [
         {
-            "name": "Win32",
+            "name": "ESP32S3",
             "includePath": [
-                "${workspaceFolder}/**",
-                "${workspaceFolder}/libraries/**",
+                "${env:LOCALAPPDATA}/Arduino15/packages/esp32/hardware/esp32/2.0.14/tools/sdk/esp32s3/**",
+                "${env:LOCALAPPDATA}/Arduino15/packages/esp32/hardware/esp32/2.0.14/cores/esp32/**",
+                "${env:LOCALAPPDATA}/Arduino15/packages/esp32/hardware/esp32/2.0.14/variants/lolin_s3_mini/**",
+                "${env:LOCALAPPDATA}/Arduino15/packages/esp32/hardware/esp32/2.0.14/libraries/**",
                 "${env:LOCALAPPDATA}/Arduino15/libraries/**",
-                "${env:LOCALAPPDATA}/Arduino15/packages/esp32/**"
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/libraries/**"
             ],
             "defines": [
                 "_DEBUG",
                 "UNICODE",
                 "_UNICODE",
-                "ARDUINO",
+                "_GNU_SOURCE",
+                "HAVE_CONFIG_H",
+                "UNITY_INCLUDE_CONFIG_H",
+                "WITH_POSIX",
+                "_POSIX_READER_WRITER_LOCKS",
+                "ARDUINO=10819",
+                "ARDUINO_LOLIN_S3_MINI",
+                "ARDUINO_ARCH_ESP32",
+                "ESP_PLATFORM",
                 "ESP32",
-                "ESP32S3",
-                "D1",
-                "D2"
+                "BOARD_HAS_PSRAM",
+                "ESP32S3"
             ],
             "cStandard": "c11",
             "cppStandard": "c++11",
-            "intelliSenseMode": "linux-gcc-x64"
+            "intelliSenseMode": "linux-gcc-x86"
         }
     ],
     "version": 4
