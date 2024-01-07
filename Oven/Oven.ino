@@ -17,15 +17,8 @@
  * 
  */
 
-#define D1 36 // D1 pin used for relay control
-#define D2 35
-#define D3 18
-#define D4 16
-#define D0 4
-#define D5 12
-#define D6 13
-#define D7 11
-#define D8 10
+#define PIN_RELAY   36 // pin used for relay control
+#define PIN_TSENSOR 35 // pin used for temperature sensor control
 
 #include <Arduino.h>
 #include <math.h>
@@ -201,7 +194,7 @@ struct _sWsJSONMsg {
  */
 TFT_eSPI          gi_Tft{};                         // TFT display driver
 
-TSensor           gi_TS{D2, false};                 // MAX31855 K-type temperature sensor instance
+TSensor           gi_TS{PIN_TSENSOR, false};                 // MAX31855 K-type temperature sensor instance
 // Enable only one PID control instance
 PIDControlBasic   gp_PID{};
 //PIDControlSimple  gp_PID{};
@@ -820,8 +813,8 @@ void setup() {
   wSS.lblStatus = "Starting controller...";
   wSS.Render(false);
   
-  pinMode(D1, OUTPUT);    // set relay pin mode to output
-  digitalWrite(D1, LOW);  // turn relay off
+  pinMode(PIN_RELAY, OUTPUT);    // set relay pin mode to output
+  digitalWrite(PIN_RELAY, LOW);  // turn relay off
   
   wSS.pbrProgress.SetProgress(5);
 
@@ -1036,7 +1029,7 @@ void loop() {
     // stop signalled ...
     if(State.isPgmRunning){
       // ... but program is running: stop it
-      digitalWrite(D1, LOW); // turn relay switch off
+      digitalWrite(PIN_RELAY, LOW); // turn relay switch off
       State.isRelayOn = false;
 
       // reset active program but leave it selected - active program can't be nullptr - we should not have started
@@ -1106,7 +1099,7 @@ void loop() {
       // make a check for program termination
       if(isnan(State.tSP) || faultCode){
         // meaning an error or reached the end of the program
-        digitalWrite(D1, LOW); // turn relay switch off
+        digitalWrite(PIN_RELAY, LOW); // turn relay switch off
         State.isRelayOn = false;
 
         State.StartStop = false;
@@ -1123,7 +1116,7 @@ void loop() {
           State.isRelayOn = false; // within tolerance - turn off relay
           wnd.lblTemprTarget.SetTextColor(DT_C_LIGHTGREEN);
         }
-        digitalWrite(D1, (State.isRelayOn ? HIGH : LOW));
+        digitalWrite(PIN_RELAY, (State.isRelayOn ? HIGH : LOW));
 
         wnd.UpdateProgramDisplay();
 
