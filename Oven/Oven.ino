@@ -37,6 +37,7 @@
 #include <AsyncTCP.h>             // included for async TCP communication
 #include <ESPAsyncWebServer.h>    // included for HTTP and WebSocket support
 
+#define ARDUINOJSON_ENABLE_PROGMEM 0
 #include <ArduinoJson.h>          // included for JSON support
 
 #include <DeskTop.h>              // included for simple desktop class library
@@ -209,7 +210,7 @@ PIDControlBasic   gp_PID{};
 AsyncWebServer    gi_WebServer{80};                 // a web server instance
 AsyncWebSocket    gi_WebSocket{PATH_WEB_WS}; // web socket for communicating with OvenWEB
 
-StaticJsonDocument<JSON_DOCUMENT_MAX_SIZE> gi_JDoc;
+JsonDocument gi_JDoc;
 
 
 
@@ -649,20 +650,20 @@ void BuildRunningConfig(JsonObject& joConfig){
   //     As we are serializing into the Async*** buffer in the end there is no worry values will change before actually sent over WiFi
 
   // add TFT information
-  JsonObject joTFT = joConfig.createNestedObject(JSCONF_TFT);
+  JsonObject joTFT = joConfig[JSCONF_TFT].to<JsonObject>();
   joTFT[JSCONF_POLL] = Configuration.TFT.poll;
-  JsonArray jaTFT = joTFT.createNestedArray(JSCONF_TFT);
+  JsonArray jaTFT = joTFT[JSCONF_TFT].to<JsonArray>();
   jaTFT.add(Configuration.TFT.data.tft[0]);
   jaTFT.add(Configuration.TFT.data.tft[1]);
   jaTFT.add(Configuration.TFT.data.tft[2]);
 
   // add WiFi information
-  JsonObject joWiFi = joConfig.createNestedObject(JSCONF_WIFI);
-  joWiFi[JSCONF_WIFI_SSID] = Configuration.WiFi.SSID.c_str(); // prevent copying string
-  joWiFi[JSCONF_WIFI_KEY] = Configuration.WiFi.KEY.c_str(); // prevent copying string
+  JsonObject joWiFi = joConfig[JSCONF_WIFI].to<JsonObject>();
+  joWiFi[JSCONF_WIFI_SSID] = Configuration.WiFi.SSID.c_str();
+  joWiFi[JSCONF_WIFI_KEY] = Configuration.WiFi.KEY.c_str();
 
   // add PID information
-  JsonObject joPID = joConfig.createNestedObject(JSCONF_PID);
+  JsonObject joPID = joConfig[JSCONF_PID].to<JsonObject>();
   joPID[JSCONF_POLL] = Configuration.PID.poll;
   joPID[JSCONF_PID_KP] = Configuration.PID.KP;
   joPID[JSCONF_PID_KI] = Configuration.PID.KI;
@@ -682,18 +683,18 @@ void BuildRunningPrograms(JsonArray& jaPrograms){
   if(Configuration.nPrograms > 0){
     // crate object in array for each program
     for(int i = 0; i < Configuration.nPrograms; i++){
-      JsonObject joProgram = jaPrograms.createNestedObject();
+      JsonObject joProgram = jaPrograms.add<JsonObject>();
 
       // set current program name
       joProgram[JSCONF_PROGRAM_NAME] = Configuration.Programs[i].GetName(); // prevent copying string
 
       // add steps array
-      JsonArray jaSteps = joProgram.createNestedArray(JSCONF_PROGRAM_STEPS);
+      JsonArray jaSteps = joProgram[JSCONF_PROGRAM_STEPS].to<JsonArray>();
 
       // for each step create nested object and set values
       for(int j = 0; j < Configuration.Programs[i].GetStepsTotal(); j++){
         // create step and set values
-        JsonObject joStep = jaSteps.createNestedObject();
+        JsonObject joStep = jaSteps.add<JsonObject>();
         TProgramStep* currStep = Configuration.Programs[i].GetStep(j);
 
         joStep[JSCONF_PROGRAM_STEP_TSTART] = currStep->GetTStart();
@@ -1158,7 +1159,7 @@ void loop() {
       gi_JDoc["id"] = "STS";
       
       // add status and populate fields
-      JsonObject joStatus = gi_JDoc.createNestedObject("status");
+      JsonObject joStatus = gi_JDoc["status"].to<JsonObject>();
       joStatus["tPB"] = State.tProbe;
       joStatus["tAM"] = State.tAmbient;
       joStatus["tSP"] = State.tSP;
@@ -1173,13 +1174,13 @@ void loop() {
         joStatus["tmElapsed"] = State.ActiveProgram.GetDurationProgramElapsed();
 
         // add active program
-        JsonObject joProgram = joStatus.createNestedObject("actPgm");
+        JsonObject joProgram = joStatus["actPgm"].to<JsonObject>();
         joProgram[JSCONF_PROGRAM_NAME] = State.ActiveProgram.GetName();
 
         // add steps array and loop through all steps adding their parameters
-        JsonArray jaSteps = joProgram.createNestedArray(JSCONF_PROGRAM_STEPS);
+        JsonArray jaSteps = joProgram[JSCONF_PROGRAM_STEPS].to<JsonArray>();
         for(int i = 0; i < State.ActiveProgram.GetStepsTotal(); i++){
-          JsonObject joStep = jaSteps.createNestedObject();
+          JsonObject joStep = jaSteps.add<JsonObject>();
           TProgramStep* currStep = State.ActiveProgram.GetStep(i);
           joStep[JSCONF_PROGRAM_STEP_TSTART] = currStep->GetTStart(); // start temperature
           joStep[JSCONF_PROGRAM_STEP_TEND] = currStep->GetTEnd(); // end temperature
@@ -1273,7 +1274,7 @@ void loop() {
           gi_JDoc.clear();
           gi_JDoc["id"] = "OK";
           // add nested configuration object
-          JsonObject joConfig = gi_JDoc.createNestedObject("config");
+          JsonObject joConfig = gi_JDoc["config"].to<JsonObject>();
           // build running configuration
           BuildRunningConfig(joConfig);
 
@@ -1329,7 +1330,7 @@ void loop() {
           gi_JDoc.clear();
           gi_JDoc["id"] = "OK";
           // add nested configuration object
-          JsonArray jaPrograms = gi_JDoc.createNestedArray("programs");
+          JsonArray jaPrograms = gi_JDoc["programs"].to<JsonArray>();
           // build running programs
           BuildRunningPrograms(jaPrograms);
 
