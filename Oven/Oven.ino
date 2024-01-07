@@ -591,8 +591,6 @@ void UpdateRunningPrograms(JsonArray& jaPrograms, bool startup){
   int nPrograms = jaPrograms.size();
   // limit the number of programs that might be in the configuration file to built-in max number of programs
   nPrograms = nPrograms > DEFAULT_MAX_PROGRAMS ? DEFAULT_MAX_PROGRAMS : nPrograms;
-  Serial.print("Found programs: ");
-  Serial.println(nPrograms, DEC);
 
   // array contains elements - read up to a maximum of DEFAULT_MAX_PROGRAMS
   for(int i = 0; i < nPrograms; i++){
@@ -602,18 +600,11 @@ void UpdateRunningPrograms(JsonArray& jaPrograms, bool startup){
       if(JsonArray sarr = pobj[JSCONF_PROGRAM_STEPS]){
         // steps are defined - create program and try populating it with steps
         int nSteps = sarr.size();
-        Serial.print("Found program steps array of length: ");
-        Serial.println(sarr.size(), DEC);
 
         // make sure to read to a maximum of TPGM_STEPS_MAX
         nSteps = nSteps > TPGM_STEPS_MAX ? TPGM_STEPS_MAX : nSteps;
         // set program name
         Configuration.Programs[i].SetName(pobj[JSCONF_PROGRAM_NAME] | "");
-
-        Serial.print("Program: ");
-        Serial.println(Configuration.Programs[i].GetName());
-        Serial.print("Found steps: ");
-        Serial.println(nSteps, DEC);
 
         // read and add every step we can accomodate
         for( int j = 0; j < nSteps; j++){
@@ -816,7 +807,6 @@ void onWSEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
  *          - Launches web server
  */
 void setup() {
-  Serial.begin(115200);
   cSplashScreenWindow wSS{gi_Tft};  // splash screen window
 
   // initialize screen
