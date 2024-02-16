@@ -18,11 +18,10 @@
  */
 
 #define PIN_RELAY   36 // pin used for relay control
-#define PIN_TSENSOR 35 // pin used for temperature sensor control
+#define PIN_TSENSOR 21 // pin used for temperature sensor control
 
 #include <Arduino.h>
 #include <math.h>
-#include <SPI.h>                  // SPI for accessing devices on SPI bus
 #include <TFT_eSPI.h>             // included for TFT support
 #include <LittleFS.h>             // included for file system support
 
@@ -38,6 +37,8 @@
 #include <PIDControl.h>           // included for PID-control implementation
 #include <TProgram.h>             // included for base classes describing controller programs
 
+#include "JSconf.h"             // controller configuration related contents
+
 /**
  * Fonts to be used for rendering on TFT display
  */
@@ -48,20 +49,11 @@
 #define FSB3 FreeSansBold18pt7b
 #define FSB4 FreeSansBold24pt7b
 
-#define DEFAULT_TFT_POLL 300    // default TFT touch screen polling interval
-#define DEFAULT_PID_POLL 1000   // default PID polling interval
-#define DEFAULT_PID_PRM  1.0    // defailt value for PID coeffitients
-
-#define DEFAULT_MAX_PROGRAMS 10 // maximum number of different programs a controller can save im memory
-
-
 
 /**
  * Global string constants
  */
 // file names and paths (also for web server)
-const char FILE_CONFIGURATION[]  = "/oven.json";
-const char FILE_PROGRAMS[]       = "/programs.json";
 const char FILE_WEB_INDEX[]      = "index.html";
 const char PATH_WEB_ROOT[]       = "/";
 const char PATH_WEB_HEAP[]       = "/heap";
@@ -88,64 +80,11 @@ const char LBL_DEGC[]            = " C";
 #define JSON_BUFFER_MAX_SIZE 8192   // maximum message/buffer size
 #define JSON_DOCUMENT_MAX_SIZE 8192 // maximum size of JSON document allowed
 
-const char JSCONF_POLL[]                    = "poll";
-
-const char JSCONF_TFT[]                     = "TFT";
-
-const char JSCONF_WIFI[]                    = "WiFi";
-const char JSCONF_WIFI_SSID[]               = "SSID";
-const char JSCONF_WIFI_KEY[]                = "KEY";
-const char JSCONF_WIFI_IP[]                 = "IP";
-
-const char JSCONF_PID[]                     = "PID";
-const char JSCONF_PID_KP[]                  = "KP";
-const char JSCONF_PID_KI[]                  = "KI";
-const char JSCONF_PID_KD[]                  = "KD";
-const char JSCONF_PID_TOLERANCE[]           = "TOL";
-
-const char JSCONF_PROGRAMS[]                = "Programs";
-const char JSCONF_PROGRAM_NAME[]            = "Name";
-const char JSCONF_PROGRAM_STEPS[]           = "steps";
-const char JSCONF_PROGRAM_STEP_TSTART[]     = "tStart";
-const char JSCONF_PROGRAM_STEP_TEND[]       = "tEnd";
-const char JSCONF_PROGRAM_STEP_DURATION[]   = "duration";
-
 const char JSON_RESPONSE_TEMPLATE_OK[]             = "{\"id\":\"OK\",\"details\":\"%s\"}";
 const char JSON_RESPONSE_TEMPLATE_ERR[]            = "{\"id\":\"ERR\",\"details\":\"%s\"}";
 
 
-/**
- * @brief Global configuration
- * 
- */
-struct _sConfiguration {
 
-  struct _sTFT {
-    unsigned long poll = DEFAULT_TFT_POLL;  // poll touch screen that often (in ms)
-    union _uData {
-      uint32_t tft[3] = {0, 0, 0};
-      uint16_t raw[6];
-    } data;
-  } TFT;
-
-  struct _sWiFi {
-    String SSID;
-    String KEY;
-    String IP;
-  } WiFi;
-
-  struct _sPID {
-    unsigned long poll = DEFAULT_PID_POLL;  // only measure temperature that often (in ms)
-    double KP = DEFAULT_PID_PRM;
-    double KI = DEFAULT_PID_PRM;
-    double KD = DEFAULT_PID_PRM;
-    double TOL = DEFAULT_PID_PRM;
-  } PID;
-
-  int nPrograms = 0;
-  TProgram Programs[DEFAULT_MAX_PROGRAMS];
-
-} Configuration;
 
 /**
  * @brief Global controller state
@@ -202,6 +141,8 @@ PIDControlBasic   gp_PID{};
 
 AsyncWebServer    gi_WebServer{80};                 // a web server instance
 AsyncWebSocket    gi_WebSocket{PATH_WEB_WS}; // web socket for communicating with OvenWEB
+
+JSConf Configuration;
 
 JsonDocument gi_JDoc;
 
@@ -525,169 +466,15 @@ class cMainWindow : public DTWindow {
 };
 cMainWindow wnd{gi_Tft}; // main window instance
 
-/**
- * @brief Updates running controller configuration from a given JsonObject
- * 
- * @param joConfig JSON object containing configuration parameters
- * @param startup indicates whether configuration is initialized at startup or to be updated while controller is running
- */
-void UpdateRunningConfig(JsonObject& joConfig, bool startup){
-  
-  // a. read TFT parameters
-  if( JsonObject obj = joConfig[JSCONF_TFT] ){
-    // TFT section is present in the document
-    
-    // set TFT touch sensor polling interval
-    Configuration.TFT.poll = obj[JSCONF_POLL] | DEFAULT_TFT_POLL;
+hw_timer_t * timerTouch = NULL;
+volatile SemaphoreHandle_t semaphoreTimerTouch;
+//portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 
-    // calibration data should only be set during startup
-    if(startup){
-    // try to read TS parameters saved earlier
-      if( JsonArray arr = obj[JSCONF_TFT] ){
-        if( arr.size() == 3 ){
-          // try parse data from JSON config
-          Configuration.TFT.data.tft[0] = arr[0] | 0;
-          Configuration.TFT.data.tft[1] = arr[1] | 0;
-          Configuration.TFT.data.tft[2] = arr[2] | 0;
-        } // else - leave calibration data as is
-      }
-    }
-  }
-  if(!startup) yield();
-        
-  // b. read WiFi parameters
-  if( JsonObject obj = joConfig[JSCONF_WIFI] ){
-    // WiFi section is present in the document
-    Configuration.WiFi.SSID = obj[JSCONF_WIFI_SSID].as<const char*>();
-    Configuration.WiFi.KEY = obj[JSCONF_WIFI_KEY].as<const char *>();
-  }
-  if(!startup) yield();
-
-  // c. read PID parameters
-  if( JsonObject obj = joConfig[JSCONF_PID] ){
-    // PID section is present in the document
-    Configuration.PID.poll = obj[JSCONF_POLL] | DEFAULT_PID_POLL;
-    Configuration.PID.KP = obj[JSCONF_PID_KP] | DEFAULT_PID_PRM;
-    Configuration.PID.KI = obj[JSCONF_PID_KI] | DEFAULT_PID_PRM;
-    Configuration.PID.KD = obj[JSCONF_PID_KD] | DEFAULT_PID_PRM;
-    Configuration.PID.TOL = obj[JSCONF_PID_TOLERANCE] | DEFAULT_PID_PRM;
-  }
+void ARDUINO_ISR_ATTR onTimerTouch(){
+  // signal main loop thread that it's time to check touch screen / redraw GUI
+  xSemaphoreGiveFromISR(semaphoreTimerTouch, NULL);
 }
 
-/**
- * @brief Updates running controller programs from a given JsonArray
- * 
- * @param jaPrograms JSON array containing programs
- * @param startup indicates whether configuration is initialized at startup or to be updated while controller is running
- */
-void UpdateRunningPrograms(JsonArray& jaPrograms, bool startup){
-  int nPrograms = jaPrograms.size();
-  // limit the number of programs that might be in the configuration file to built-in max number of programs
-  nPrograms = nPrograms > DEFAULT_MAX_PROGRAMS ? DEFAULT_MAX_PROGRAMS : nPrograms;
-
-  // array contains elements - read up to a maximum of DEFAULT_MAX_PROGRAMS
-  for(int i = 0; i < nPrograms; i++){
-    // program might be malformed in JSON for some reason - make sure it is not pointing anywhere
-    if( JsonObject pobj = jaPrograms[i] ){
-      // try reading steps - create program only in case steps are defined
-      if(JsonArray sarr = pobj[JSCONF_PROGRAM_STEPS]){
-        // steps are defined - create program and try populating it with steps
-        int nSteps = sarr.size();
-
-        // make sure to read to a maximum of TPGM_STEPS_MAX
-        nSteps = nSteps > TPGM_STEPS_MAX ? TPGM_STEPS_MAX : nSteps;
-        // set program name
-        Configuration.Programs[i].SetName(pobj[JSCONF_PROGRAM_NAME] | "");
-
-        // read and add every step we can accomodate
-        for( int j = 0; j < nSteps; j++){
-          if( JsonObject sobj = sarr[j] ){
-            // add step in case it is represented as a valid JSON object
-            Configuration.Programs[i].AddStep(sobj[JSCONF_PROGRAM_STEP_TSTART] | 0.0,
-                                              sobj[JSCONF_PROGRAM_STEP_TEND] | 0.0,
-                                              sobj[JSCONF_PROGRAM_STEP_DURATION] | 0 );
-          }
-        }
-        Configuration.Programs[i].Reset(); // reset program to ready state
-      }
-    }
-
-    // let controller do some stuff while reading programs might take a while
-    if(!startup) yield();
-  } // done reading programs
-
-  // adjust number of programs read
-  Configuration.nPrograms = nPrograms;
-}
-
-/**
- * @brief Given a reference to JSON object populates it with current running configuration
- * 
- * @param joConfig a valid JsonObject that will be modified and filled with configuration values
- */
-void BuildRunningConfig(JsonObject& joConfig){
-  // a valid JsonObject is expected with enough space allocated to hold configuration
-  //
-  // NB! when "String" values are added to JsonObject/Array - use c_str() (i.e. const char*) to prevent ArduinoJson from copying those.
-  //     It should be safe to do so: configuration string values are not modified from Async*** library thread.
-  //     As we are on the loop thread - nothing else can modify these strings.
-  //     As we are serializing into the Async*** buffer in the end there is no worry values will change before actually sent over WiFi
-
-  // add TFT information
-  JsonObject joTFT = joConfig[JSCONF_TFT].to<JsonObject>();
-  joTFT[JSCONF_POLL] = Configuration.TFT.poll;
-  JsonArray jaTFT = joTFT[JSCONF_TFT].to<JsonArray>();
-  jaTFT.add(Configuration.TFT.data.tft[0]);
-  jaTFT.add(Configuration.TFT.data.tft[1]);
-  jaTFT.add(Configuration.TFT.data.tft[2]);
-
-  // add WiFi information
-  JsonObject joWiFi = joConfig[JSCONF_WIFI].to<JsonObject>();
-  joWiFi[JSCONF_WIFI_SSID] = Configuration.WiFi.SSID.c_str();
-  joWiFi[JSCONF_WIFI_KEY] = Configuration.WiFi.KEY.c_str();
-
-  // add PID information
-  JsonObject joPID = joConfig[JSCONF_PID].to<JsonObject>();
-  joPID[JSCONF_POLL] = Configuration.PID.poll;
-  joPID[JSCONF_PID_KP] = Configuration.PID.KP;
-  joPID[JSCONF_PID_KI] = Configuration.PID.KI;
-  joPID[JSCONF_PID_KD] = Configuration.PID.KD;
-  joPID[JSCONF_PID_TOLERANCE] = Configuration.PID.TOL;
-
-  // end building up configuration
-}
-
-/**
- * @brief Given a reference to valid JsonArray populates it with currently loaded oven programs
- * 
- * @param jaPrograms a valid JsonArray that will be modified and filled with information about programs
- */
-void BuildRunningPrograms(JsonArray& jaPrograms){
-  // add programs array if there are any programs in currently loaded configuration
-  if(Configuration.nPrograms > 0){
-    // crate object in array for each program
-    for(int i = 0; i < Configuration.nPrograms; i++){
-      JsonObject joProgram = jaPrograms.add<JsonObject>();
-
-      // set current program name
-      joProgram[JSCONF_PROGRAM_NAME] = Configuration.Programs[i].GetName(); // prevent copying string
-
-      // add steps array
-      JsonArray jaSteps = joProgram[JSCONF_PROGRAM_STEPS].to<JsonArray>();
-
-      // for each step create nested object and set values
-      for(int j = 0; j < Configuration.Programs[i].GetStepsTotal(); j++){
-        // create step and set values
-        JsonObject joStep = jaSteps.add<JsonObject>();
-        TProgramStep* currStep = Configuration.Programs[i].GetStep(j);
-
-        joStep[JSCONF_PROGRAM_STEP_TSTART] = currStep->GetTStart();
-        joStep[JSCONF_PROGRAM_STEP_TEND] = currStep->GetTEnd();
-        joStep[JSCONF_PROGRAM_STEP_DURATION] = currStep->GetDuration();
-      }
-    }
-  }
-}
 
 /**
  * @brief WebSocket event handler.
@@ -833,9 +620,9 @@ void setup() {
 
   // check if configuration file exists
   // if it does - read JSON and fill in configuration structure
-  if (LittleFS.exists(FILE_CONFIGURATION)) {
+  if (LittleFS.exists(JSConf::FILE_CONFIGURATION)) {
 
-    File f = LittleFS.open(FILE_CONFIGURATION, "r");
+    File f = LittleFS.open(JSConf::FILE_CONFIGURATION, "r");
 
     if (f) {
       // try deserializing from JSON config file
@@ -844,7 +631,7 @@ void setup() {
       // parese JSON if it was deserialized successfully
       if(!err){
         JsonObject joConfig = gi_JDoc.as<JsonObject>();
-        UpdateRunningConfig(joConfig, true);
+        Configuration.UpdateRunningConfig(joConfig, true);
       }else{
         // an error occured parsing JSON
       }
@@ -862,9 +649,9 @@ void setup() {
 
   // check if programs file exists
   // if it does - read JSON and fill in programs array
-  if (LittleFS.exists(FILE_PROGRAMS)) {
+  if (LittleFS.exists(JSConf::FILE_PROGRAMS)) {
 
-    File f = LittleFS.open(FILE_PROGRAMS, "r");
+    File f = LittleFS.open(JSConf::FILE_PROGRAMS, "r");
 
     if (f) {
       // try deserializing from JSON programs file
@@ -873,7 +660,7 @@ void setup() {
       // parese JSON if it was deserialized successfully
       if(!err){
         JsonArray jaPrograms = gi_JDoc.as<JsonArray>();
-        UpdateRunningPrograms(jaPrograms, true);
+        Configuration.UpdateRunningPrograms(jaPrograms, true);
       }else{
         // an error occured parsing JSON
       }
@@ -911,11 +698,11 @@ void setup() {
     wSS.lblStatus.SetTextColor(DT_C_LIGHTGREEN);
 
     // Save configuration to avoid re-calibration on restarts
-    File f = LittleFS.open(FILE_CONFIGURATION, "w");
+    File f = LittleFS.open(JSConf::FILE_CONFIGURATION, "w");
 
     if (f) {
       JsonObject joConfig = gi_JDoc.to<JsonObject>();
-      BuildRunningConfig(joConfig);
+      Configuration.BuildRunningConfig(joConfig);
 
       // save config to file
       serializeJson(gi_JDoc, f);
@@ -975,6 +762,15 @@ void setup() {
   // 0.6 no more initialization screen updates - invalidate and render main window
   wnd.Invalidate();
   wnd.Render(false);
+
+  // touchscreen polling on intervals.
+  // set up touchscreen handler: timer and semaphore
+  semaphoreTimerTouch = xSemaphoreCreateBinary();
+  timerTouch = timerBegin(0, 80, true);
+  timerAttachInterrupt(timerTouch, &onTimerTouch, true);
+  timerAlarmWrite(timerTouch, Configuration.TFT.poll*500, true);
+  timerAlarmEnable(timerTouch);
+
 } // end of setup()
 
 #define BUFF_LEN 32
@@ -996,10 +792,17 @@ void loop() {
   char buff[BUFF_LEN];
 
   // allow handling touch screen events early to allow emergency oven stop as early as possible
-  if ( (ticks - State.ticks_TS >= Configuration.TFT.poll) && gi_Tft.getTouch(&x, &y) )
+  /* if ( (ticks - State.ticks_TS >= Configuration.TFT.poll) && gi_Tft.getTouch(&x, &y) )
   {
     wnd.HandleEvent(x,y, true);
     State.ticks_TS = ticks; // save current timer value for next loop
+  } */
+
+  //new implementation with timer interrupt
+  // 1. check semaphore to see if it was fired from interrupt
+  // 2. if yes - check the touch sensor state and process message in case there is an active touch
+  if( (xSemaphoreTake(semaphoreTimerTouch,0) == pdTRUE) && gi_Tft.getTouch(&x,&y) ){
+    wnd.HandleEvent(x,y,true);
   }
 
   // after handling events - check program start/stop flag
@@ -1158,16 +961,16 @@ void loop() {
 
         // add active program
         JsonObject joProgram = joStatus["actPgm"].to<JsonObject>();
-        joProgram[JSCONF_PROGRAM_NAME] = State.ActiveProgram.GetName();
+        joProgram[JSConf::TOKEN_PROGRAM_NAME] = State.ActiveProgram.GetName();
 
         // add steps array and loop through all steps adding their parameters
-        JsonArray jaSteps = joProgram[JSCONF_PROGRAM_STEPS].to<JsonArray>();
+        JsonArray jaSteps = joProgram[JSConf::TOKEN_PROGRAM_STEPS].to<JsonArray>();
         for(int i = 0; i < State.ActiveProgram.GetStepsTotal(); i++){
           JsonObject joStep = jaSteps.add<JsonObject>();
           TProgramStep* currStep = State.ActiveProgram.GetStep(i);
-          joStep[JSCONF_PROGRAM_STEP_TSTART] = currStep->GetTStart(); // start temperature
-          joStep[JSCONF_PROGRAM_STEP_TEND] = currStep->GetTEnd(); // end temperature
-          joStep[JSCONF_PROGRAM_STEP_DURATION] = currStep->GetDuration(); // duration in ms
+          joStep[JSConf::TOKEN_PROGRAM_STEP_TSTART] = currStep->GetTStart(); // start temperature
+          joStep[JSConf::TOKEN_PROGRAM_STEP_TEND] = currStep->GetTEnd(); // end temperature
+          joStep[JSConf::TOKEN_PROGRAM_STEP_DURATION] = currStep->GetDuration(); // duration in ms
         }
       }else{
         // there is no active program
@@ -1259,7 +1062,7 @@ void loop() {
           // add nested configuration object
           JsonObject joConfig = gi_JDoc["config"].to<JsonObject>();
           // build running configuration
-          BuildRunningConfig(joConfig);
+          Configuration.BuildRunningConfig(joConfig);
 
           // send out reply
           AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
@@ -1278,7 +1081,7 @@ void loop() {
           JsonObject joConfig = gi_JDoc["msg"];
           if(joConfig){
             // msg object present
-            UpdateRunningConfig(joConfig, false);
+            Configuration.UpdateRunningConfig(joConfig, false);
             // notify client that configuration was modified
             AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
             if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_OK, "Configuration modified");
@@ -1290,11 +1093,11 @@ void loop() {
 
         }else if(!strcmp("cfgSV",cmd)){
           // write configuration to flash memory
-          File f = LittleFS.open(FPSTR(FILE_CONFIGURATION), "w");
+          File f = LittleFS.open(JSConf::FILE_CONFIGURATION, "w");
 
           if (f) {
             JsonObject joConfig = gi_JDoc.to<JsonObject>();
-            BuildRunningConfig(joConfig);
+            Configuration.BuildRunningConfig(joConfig);
             // save config to file
             serializeJson(gi_JDoc, f);
             // close the file
@@ -1315,7 +1118,7 @@ void loop() {
           // add nested configuration object
           JsonArray jaPrograms = gi_JDoc["programs"].to<JsonArray>();
           // build running programs
-          BuildRunningPrograms(jaPrograms);
+          Configuration.BuildRunningPrograms(jaPrograms);
 
           // send out reply
           AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
@@ -1334,7 +1137,7 @@ void loop() {
           JsonArray jaPrograms = gi_JDoc["msg"];
           if(jaPrograms){
             // msg object present
-            UpdateRunningPrograms(jaPrograms, false);
+            Configuration.UpdateRunningPrograms(jaPrograms, false);
             // notify client that configuration was modified
             AsyncWebSocketClient* wsc = gi_WebSocket.client(gi_WsJSONMsg.client_id);
             if(wsc != nullptr) wsc->printf(JSON_RESPONSE_TEMPLATE_OK, "Programs modified");
@@ -1346,11 +1149,11 @@ void loop() {
 
         }else if(!strcmp("pgmSV",cmd)){
           // write programs to flash memory
-          File f = LittleFS.open(FPSTR(FILE_PROGRAMS), "w");
+          File f = LittleFS.open(JSConf::FILE_PROGRAMS, "w");
 
           if (f) {
             JsonArray jaPrograms = gi_JDoc.to<JsonArray>();
-            BuildRunningPrograms(jaPrograms);
+            Configuration.BuildRunningPrograms(jaPrograms);
             // save config to file
             serializeJson(gi_JDoc, f);
             // close the file
@@ -1387,7 +1190,7 @@ void loop() {
     gi_WsJSONMsg.status = WSJSONMSG_EMPTY; // mark as available for accomodating new message after all cleanup activities that may take time
   } // done handling incoming message
 
-  // and finally redraw screen if needed
+  // and finally redraw screen if needed: i.e. if timerGUI has fired.
   wnd.Render(false);
 
 } // end of loop()

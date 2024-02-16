@@ -33,15 +33,25 @@
 #define TSENSOR_ERR_GND         0b010       // bit mask - chip error: thermocouple shorted to ground
 #define TSENSOR_ERR_VCC         0b100       // bit mask - chip error; thermocouple shorted to VCC
 
+#define HSPI_SCK    34                      // pin to use as serial clock for SPI bus
+#define HSPI_MISO   17                      // pin to use as Master In Slave Out
+#define HSPI_MOSI   -1                      // pin to use as Master Out Slave In
+#define HSPI_SS     -1                      // pin to use as Slave Select (in slave mode)
 
 class TSensor
 {
  public:
-    TSensor(uint8_t cs, bool reversed) : valRaw(0), valProbe(NAN), valAmbient(NAN), _error(0), _cs(cs), _reversed(reversed)
+    TSensor(uint8_t cs, bool reversed) : valRaw(0), valProbe(NAN), valAmbient(NAN), _error(0), _cs(cs), _reversed(reversed), _spi(nullptr)
     {
         pinMode(_cs, OUTPUT);    // Make the chip select pin output
         digitalWrite(_cs, HIGH); // High means ignore master, chip starts measuring
-        SPI.begin();
+
+        _spi = new SPIClass(HSPI); // use HSPI bus - as Arduino library implementation defaults to VSPI (to be used by TFT display)
+        _spi->begin(HSPI_SCK, HSPI_MISO, HSPI_MOSI, HSPI_SS);
+    }
+
+    ~TSensor(){
+        delete _spi;
     }
 
     uint8_t     readChip(); // reads raw value from chip over SPI bus and parses values. returns 0 on success or error code if any
@@ -58,6 +68,7 @@ class TSensor
     uint8_t     _error; // error value decoded from chip Raw value
     uint8_t     _cs; // CS pin to be used for tackling the chip
     bool        _reversed; // a flag to indicate that K-thermocouple pins have been reversed (reverse polarity)
+    SPIClass*   _spi; // use second available SPI bus on ESP32 controller.
 
     // below are the the static arrays of coefficients derived from NIST dtabase found at
     // http://srdata.nist.gov/its90/download/type_k.tab

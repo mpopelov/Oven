@@ -33,20 +33,23 @@ uint8_t TSensor::readChip()
     //
     int32_t dataBuffer = 0; // buffer for reading from chip
 
-    SPI.beginTransaction(SPISettings(TSENSOR_SPI_FREQUENCY,MSBFIRST,SPI_MODE0)); // Start transaction at 5MHz MSB
+    _spi->beginTransaction(SPISettings(TSENSOR_SPI_FREQUENCY, MSBFIRST, SPI_MODE0)); // Start transaction at 5MHz MSB
     digitalWrite(_cs,LOW); // trigger data transfer from MAX31855
     
     // read 4 data bytes
-    dataBuffer   = SPI.transfer(0);
+    dataBuffer   = _spi->transfer(0);
     dataBuffer <<= 8;
-    dataBuffer  |= SPI.transfer(0);
+    dataBuffer  |= _spi->transfer(0);
     dataBuffer <<= 8;
-    dataBuffer  |= SPI.transfer(0);
+    dataBuffer  |= _spi->transfer(0);
     dataBuffer <<= 8;
-    dataBuffer  |= SPI.transfer(0);
+    dataBuffer  |= _spi->transfer(0);
+
+    // TODO: replace it with a single call to use DMA:
+    //dataBuffer = _spi->transfer32(0);
 
     digitalWrite(_cs,HIGH);         // deactivate MAX31855 to no longer send anything on SPI
-    SPI.endTransaction();
+    _spi->endTransaction();
 
     // save raw value
     valRaw = dataBuffer;

@@ -1,0 +1,28 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "GDB",
+        "type": "cppdbg",
+        "request": "launch",
+        "MIMode": "gdb",
+        "miDebuggerPath": "C:\\Users\\User\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\xtensa-esp32s3-elf-gcc\\esp-2021r2-patch5-8.4.0\\bin\\xtensa-esp32s3-elf-gdb.exe",
+        "program": "${workspaceFolder}/bin/Oven.ino.elf",
+        "windows": {
+          "program": "${workspaceFolder}\\bin\\Oven.ino.elf"
+        },
+        "cwd": "${workspaceFolder}",
+        "setupCommands": [
+          { "text": "target remote :3333" },
+          { "text": "set remote hardware-watchpoint-limit 2"},
+          { "text": "mon reset halt" },
+          { "text": "thb loop" },
+          { "text": "flushregs" }
+        ],
+        "externalConsole": false,
+        "logging": {
+          "engineLogging": true
+        }
+      }
+    ]
+  }
