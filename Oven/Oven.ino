@@ -107,6 +107,7 @@ struct _sState {
   volatile bool StartStop = false;            // a flag to signal main loop to start (true) or stop (false) selected program.
   bool isPgmRunning = false;                  // gloabl flag for signalling controller program state
   bool isRelayOn = false;                     // flag to indicate that the relay is turned on
+  uint32_t err_count = 0;
 
 } State;
 
@@ -133,7 +134,7 @@ struct _sWsJSONMsg {
  */
 TFT_eSPI          gi_Tft{};                         // TFT display driver
 
-TSensor           gi_TS{PIN_TSENSOR, false};                 // MAX31855 K-type temperature sensor instance
+TSensor           gi_TS{PIN_TSENSOR};                 // MAX31855 K-type temperature sensor instance
 // Enable only one PID control instance
 PIDControlBasic   gp_PID{};
 //PIDControlSimple  gp_PID{};
@@ -247,6 +248,7 @@ class cMainWindow : public DTWindow {
   // temperature main display - Y offset 50
              lblTempr( gfx,   0,  50, 240,  85, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSB4, LBL_TEMPREMPTY),
        lblTemprTarget( gfx, 130, 135,  90,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_TEMPREMPTY),
+          lblTemprAmb( gfx,   0, 135,  90,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_TEMPREMPTY),
   // step timing values - Y offset 160
           lblStepTime( gfx,   0, 160, 170,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_STEPTIME),
      lblStepTimeValue( gfx, 170, 160,  75,  25, DTCONTROL_FLAGS_VISIBLE | DTCONTROL_FLAGS_INVALIDATED, DT_C_BACKGROUND, DT_C_RED, DT_C_LIGHTGREEN, &FSN1, LBL_TIMEREMPTY),
@@ -267,6 +269,7 @@ class cMainWindow : public DTWindow {
     // set alignment on lebels as necessary
     lblTempr.SetTextAlignment(CENTER);
     lblTemprTarget.SetTextAlignment(RIGHT);
+    lblTemprAmb.SetTextAlignment(LEFT);
 
     // Add controls to handling stack
     AddControl(&lblProgram);
@@ -278,6 +281,7 @@ class cMainWindow : public DTWindow {
     AddControl(&lblStepTotal);
     AddControl(&btnSFwd);
     AddControl(&lblTemprTarget);
+    AddControl(&lblTemprAmb);
     AddControl(&lblTempr);
     AddControl(&lblStepTime);
     AddControl(&lblStepTimeValue);
@@ -448,6 +452,7 @@ class cMainWindow : public DTWindow {
   // labels
   DTLabel lblTempr;             // current measured temperature
   DTLabel lblTemprTarget;       // current target temperature (SetPoint)
+  DTLabel lblTemprAmb;          // current ambient temperature
   DTLabel lblStatus;            // status text label at the bottom of the screen
   DTLabel lblProgram;           // Label "Program; "
   DTLabel lblProgramName;       // actual program name
@@ -880,10 +885,15 @@ void loop() {
     }
 
     // update values
+    // save previous probe value for error handling situation
+
+    double tProbe_previous = State.tProbe;
+
     State.tAmbient    = gi_TS.getAmbient();         // get updated value of chip ambient temperature
     State.tProbe      = gi_TS.getProbeLinearized(); // get probe temperature as read by chip
 
-    if(faultCode){
+    // original implementation
+    /* if(faultCode){
       // an error occured
       if (faultCode & 0b001) { wnd.lblStatus = "ERR: Sensor not connected"; }
       if (faultCode & 0b010) { wnd.lblStatus = "ERR: Sensor s-c to GND(-)"; }
@@ -891,7 +901,35 @@ void loop() {
       wnd.lblTempr = LBL_TEMPREMPTY;
     }else{
       (wnd.lblTempr = String(State.tProbe, 1)) += LBL_DEGC;
+    } */
+
+    ///------------------------------- START OF ALTERNATIVE IMPLEMENTATION ---------------------------
+    // alternative implementation - try to ignore Short-To-Ground fault at high temperatures
+    if(faultCode){
+      // an error occured
+      State.err_count++; // increase the error counter
+      if (faultCode & 0b001) { (wnd.lblStatus = String(State.err_count)) += " ERR: OC"; }  // open cirquit
+      if (faultCode & 0b010) { (wnd.lblStatus = String(State.err_count)) += " ERR: SCG"; } // short to GND
+      if (faultCode & 0b100) { (wnd.lblStatus = String(State.err_count)) += " ERR: SCV"; } // short to Vcc
+      //!!!!!!! prevent switching off by faultcode - think of adding limit on how many errors we can tolerate
+      faultCode = 0;
+      // now compare the values of previous and last temperature values to see if there is a spike difference
+      // make an assumption: in furnace temperature can't change dramatically - the system is too inertial.
+      // discard the new value if the difference between measurements it above the threshold
+      if( abs(State.tProbe - tProbe_previous) > 5.0) {
+        // if it is bigger than 5.0 C - restore previous value
+        State.tProbe = tProbe_previous;
+      }
+    }else{
+      // there were no fault - reset error counter
+      State.err_count = 0;
     }
+
+    (wnd.lblTempr = String(State.tProbe, 1)) += LBL_DEGC;
+    ///------------------------------- END OF ALTERNATIVE IMPLEMENTATION ---------------------------
+
+    // show ambient temperature
+    (wnd.lblTemprAmb = String(State.tAmbient, 1)) += LBL_DEGC;
 
     // check if program is in Running state
     if(State.isPgmRunning){

@@ -20,16 +20,19 @@
 /**
  * @brief Reads raw temperature value from MAX31855 chip over SPI and updates all temperature values
  * 
- * @return 0 on success or error bits if set while reding
+ * @return 0 on success or error bits if set while reading
  */
 uint8_t TSensor::readChip()
 {
     // TODO:
     //
-    // 1) use 10nF/0.01mF capacitor on thermocouple input - test if fluctuations are still rather big
+    // + 1) use 10nF/0.01mF capacitor on thermocouple input - test if fluctuations are still rather big
     // 2) try toggling measurement at right before reading to prevent accumulated error that may be introduced during long measurement intervals
     // + 3) implement linearisation / temperature compensation for better measurements
     // 4) implement average calculation based on 3/5 consecutive readings
+    //
+    //  To compensate for MAX31855 sensitivity - when returning an error also still try to interpret the temperature (both ambient and sensor)
+    //
     //
     int32_t dataBuffer = 0; // buffer for reading from chip
 
@@ -37,16 +40,16 @@ uint8_t TSensor::readChip()
     digitalWrite(_cs,LOW); // trigger data transfer from MAX31855
     
     // read 4 data bytes
-    dataBuffer   = _spi->transfer(0);
-    dataBuffer <<= 8;
-    dataBuffer  |= _spi->transfer(0);
-    dataBuffer <<= 8;
-    dataBuffer  |= _spi->transfer(0);
-    dataBuffer <<= 8;
-    dataBuffer  |= _spi->transfer(0);
+    // dataBuffer   = _spi->transfer(0);
+    // dataBuffer <<= 8;
+    // dataBuffer  |= _spi->transfer(0);
+    // dataBuffer <<= 8;
+    // dataBuffer  |= _spi->transfer(0);
+    // dataBuffer <<= 8;
+    // dataBuffer  |= _spi->transfer(0);
 
     // TODO: replace it with a single call to use DMA:
-    //dataBuffer = _spi->transfer32(0);
+    dataBuffer = _spi->transfer32(0);
 
     digitalWrite(_cs,HIGH);         // deactivate MAX31855 to no longer send anything on SPI
     _spi->endTransaction();
@@ -54,32 +57,30 @@ uint8_t TSensor::readChip()
     // save raw value
     valRaw = dataBuffer;
 
-    // try decoding error code
-    _error = (uint32_t)dataBuffer & B111; // Mask fault code bits
+    // Identify and interpret error code:
+    // bit 16 of a raw value indicates an error - in that case save 3 lower bits that explain an error
+    _error = (uint32_t)dataBuffer & 0b10000000000000000 ? (uint32_t)dataBuffer & 0b111 : 0;
 
     // read temperatures
     valAmbient = NAN;   // set ambient temperature to NAN to indicate an error
     valProbe = NAN;     // set probe temperature to NAN to indicate an error 
-    if(!_error){
+    // if(!_error){
         // there were no error - can try to decode
 
         // 1) mask out the ambient temperature value and decode it
+        // Ambient temperature is a 12bit value stored in bits 4-15 of original data
         dataBuffer = (dataBuffer & 0xFFFF) >> 4;
-        if(dataBuffer & 0x2000) dataBuffer |= 0xFFFF000;    // 2s complement bits if negative
+        // 2s complement bits to form 32-bit signed integer out of 12bit one
+        if(dataBuffer & 0b100000000000) dataBuffer |= 0b11111111111111111111000000000000; //0xFFFFF000;
         valAmbient = dataBuffer * TSENSOR_RES_AMBIENT;      // Sensitivity is 0.0625 C
 
-        // 2) restore raw value read
-        dataBuffer = valRaw;
-
-        // 3) mask out and decode probe temperature
-        dataBuffer = dataBuffer >> 18;
-        if(dataBuffer & 0x2000) dataBuffer |= 0xFFFE000;    // 2s complement bits if negative
+        // 2) restore raw value and mask out/decode probe temperature
+        dataBuffer = valRaw >> 18;
+        // 2s complement bits to form 32-bit signed integer out of 14bit one
+        if(dataBuffer & 0b10000000000000) dataBuffer |= 0b11111111111111111100000000000000; //0xFFFFC000;
         valProbe = dataBuffer * TSENSOR_RES_PROBE;          // Sensitivity is 0.25 C
-        // 4) adjust probe temperature in case its connection is reversed
-        if(_reversed){
-            valProbe = (valAmbient - valProbe) + valAmbient;
-        }
-    }
+        // 3) adjust probe temperature in case its connection is reversed
+    // }
 
     return _error; // return error value explicitly to be able to check the results
 }
