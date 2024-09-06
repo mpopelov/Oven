@@ -6,7 +6,7 @@
         "type": "cppdbg",
         "request": "launch",
         "MIMode": "gdb",
-        "miDebuggerPath": "C:\\Users\\User\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\xtensa-esp32s3-elf-gcc\\esp-2021r2-patch5-8.4.0\\bin\\xtensa-esp32s3-elf-gdb.exe",
+        "miDebuggerPath": "C:\\Users\\User\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\xtensa-esp-elf-gdb\\12.1_20231023\\bin\\xtensa-esp32s3-elf-gdb.exe",
         "program": "${workspaceFolder}/bin/Oven.ino.elf",
         "windows": {
           "program": "${workspaceFolder}\\bin\\Oven.ino.elf"

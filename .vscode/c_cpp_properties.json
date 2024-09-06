@@ -3,10 +3,10 @@
         {
             "name": "ESP32S3",
             "includePath": [
-                "${env:LOCALAPPDATA}/Arduino15/packages/esp32/hardware/esp32/2.0.14/cores/esp32/**",
-                "${env:LOCALAPPDATA}/Arduino15/packages/esp32/hardware/esp32/2.0.14/variants/lolin_s3_mini/**",
-                "${env:LOCALAPPDATA}/Arduino15/packages/esp32/hardware/esp32/2.0.14/libraries/**",
-                "${env:LOCALAPPDATA}/Arduino15/packages/esp32/hardware/esp32/2.0.14/tools/sdk/esp32s3/**",
+                "${env:LOCALAPPDATA}/Arduino15/packages/esp32/hardware/esp32/3.0.4/cores/esp32/**",
+                "${env:LOCALAPPDATA}/Arduino15/packages/esp32/hardware/esp32/3.0.4/variants/lolin_s3_mini/**",
+                "${env:LOCALAPPDATA}/Arduino15/packages/esp32/hardware/esp32/3.0.4/libraries/**",
+                "${env:LOCALAPPDATA}/Arduino15/packages/esp32/tools/esp-xs3/**",
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/libraries/**"
             ],
