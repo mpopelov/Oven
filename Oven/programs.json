@@ -43,7 +43,7 @@
         { "tStart" : 200, "tEnd" : 200, "duration" : 2100000 },
         { "tStart" : 200, "tEnd" : 1020, "duration" : 10800000 },
         { "tStart" : 1020, "tEnd" : 1020, "duration" : 2400000 },
-        { "tStart" : 1020, "tEnd" : 800, "duration" : 7200000 }
+        { "tStart" : 1020, "tEnd" : 600, "duration" : 14400000 }
     ]
   },
   { "Name" : "Glazing 1040",
