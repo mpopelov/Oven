@@ -68,6 +68,16 @@
         { "tStart" : 1050, "tEnd" : 800, "duration" : 7200000 }
     ]
   },
+  { "Name" : "Glazing 1240",
+    "steps": [
+        { "tStart" : 28, "tEnd" : 600, "duration" : 21600000 },
+        { "tStart" : 600, "tEnd" : 1240, "duration" : 14400000 },
+        { "tStart" : 1240, "tEnd" : 1240, "duration" : 600000 },
+        { "tStart" : 1240, "tEnd" : 1140, "duration" : 1800000 },
+        { "tStart" : 1140, "tEnd" : 1140, "duration" : 1200000 },
+        { "tStart" : 1140, "tEnd" : 800, "duration" : 7200000 }
+    ]
+  },
   { "Name" : "Glazing Black 1170",
     "steps": [
         { "tStart" : 28, "tEnd" : 400, "duration" : 14400000 },
