@@ -68,6 +68,14 @@
         { "tStart" : 1050, "tEnd" : 800, "duration" : 7200000 }
     ]
   },
+  { "Name" : "Glazing 1200",
+    "steps": [
+        { "tStart" : 28, "tEnd" : 600, "duration" : 21600000 },
+        { "tStart" : 600, "tEnd" : 1200, "duration" : 16200000 },
+        { "tStart" : 1200, "tEnd" : 1200, "duration" : 900000 },
+        { "tStart" : 1200, "tEnd" : 800, "duration" : 14400000 }
+    ]
+  },
   { "Name" : "Glazing 1240",
     "steps": [
         { "tStart" : 28, "tEnd" : 600, "duration" : 21600000 },
